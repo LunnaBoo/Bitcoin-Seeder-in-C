@@ -9,10 +9,6 @@
  */
 
 #include "serialization.h"
-#include "protocol.h"
-#include <arpa/inet.h>
-#include <stdint.h>
-#include <sys/socket.h>
 
 // Concatenate byte-by-byte of the value in little endian order
 

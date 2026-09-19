@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AI ALERT >:(
+# AI SCRIPT ALERT >:(
 
 set -euo pipefail
 
