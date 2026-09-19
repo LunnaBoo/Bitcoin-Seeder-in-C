@@ -9,6 +9,11 @@
  */
 
 #include "serialization.h"
+#include "protocol.h"
+#include <arpa/inet.h>
+#include <stdint.h>
+#include <sys/socket.h>
+
 
 // Concatenate byte-by-byte of the value in little endian order
 
@@ -102,13 +107,91 @@ uint64_t unpack_uint64(unsigned char *buf) {
                    ((uint64_t)buf[7] << 56));
 }
 
-/*
-unsigned char *pack_version(t_msg_version msg) {
-  //
-  //
-  //
-  //
-  //
-  return NULL;
+
+void pack_var_str(unsigned char *buf, t_var_str str) {
+  // pack length
+  // pack char[i] while i < length
+  int i = 0;
+
+  buf[i] = str.length;
+
+  while (i < str.length) {
+    buf[i + 1] = (unsigned char)str.string[i];
+    i++;
+  }
 }
-*/
+
+
+void pack_port(unsigned char *buf, uint16_t port) {
+  port = htons(port);
+  memcpy(buf, &port, 2);
+}
+
+
+int pack_ip(unsigned char *buf, char *ip, bool is_ipv4) {
+  if (is_ipv4) {
+    memset(buf, 0x00, 10);
+    buf[10] = 0xFF;
+    buf[11] = 0xFF;
+    if (inet_pton(AF_INET, ip, buf + 12) <= 0)
+      return -1;
+  } else {
+    if (inet_pton(AF_INET6, ip, buf) <= 0)
+      return -1;
+  }
+  return 0;
+}
+
+
+void pack_net_addr(unsigned char *buf, t_net_addr net_addr, bool is_ipv4,
+                   bool has_time) {
+  unsigned char time[4];
+  unsigned char services[8];
+  unsigned char ip[16];  // big endian
+  unsigned char port[2]; // big endian
+
+  pack_int16(time, net_addr.time);
+  pack_int64(services, net_addr.services);
+  pack_ip(ip, net_addr.ip, is_ipv4);
+  pack_port(port, net_addr.port);
+
+  if (has_time)
+    memcpy(buf, time, 4);
+  memcpy(buf, services, 8);
+  memcpy(buf, ip, 16);
+  memcpy(buf, port, 2);
+}
+
+
+void pack_version(unsigned char *buf, t_version_payload payload,
+                  bool is_recv_ipv4, bool is_from_ipv4) {
+  unsigned char version[4];
+  unsigned char services[8];
+  unsigned char timestamp[8];
+  unsigned char addr_recv[26];
+  unsigned char addr_from[26];
+  unsigned char nonce[8];
+  unsigned char user_agent[payload.user_agent.length + 1];
+  unsigned char start_height[4];
+  unsigned char relay[1];
+
+  pack_int32(version, payload.version);
+  pack_int64(services, payload.services);
+  pack_int64(timestamp, payload.timestamp);
+  pack_net_addr(addr_recv, payload.addr_recv, is_recv_ipv4, false);
+  pack_net_addr(addr_from, payload.addr_from, is_from_ipv4, false);
+  pack_int64(nonce, payload.nonce);
+  pack_var_str(user_agent, payload.user_agent);
+  pack_int32(start_height, payload.start_height);
+  memcpy(relay, &payload.relay, 1);
+
+  memcpy(buf, version, 4);
+  memcpy(buf, services, 8);
+  memcpy(buf, timestamp, 8);
+  memcpy(buf, addr_recv, 26);
+  memcpy(buf, addr_from, 26);
+  memcpy(buf, nonce, 8);
+  memcpy(buf, user_agent, payload.user_agent.length + 1);
+  memcpy(buf, start_height, 4);
+  memcpy(buf, relay, 1);
+}

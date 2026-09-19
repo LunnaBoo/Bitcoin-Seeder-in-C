@@ -2,7 +2,8 @@
 #define SERIALIZATION_H
 
 #include "protocol.h"
-#include <stdint.h>
+#include "utils.h"
+#include <arpa/inet.h>
 
 void pack_int16(unsigned char *buf, uint16_t i);
 void pack_int32(unsigned char *buf, uint32_t i);

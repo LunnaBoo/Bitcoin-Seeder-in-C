@@ -5,23 +5,23 @@
 enum { checksum_length = 4, command_length = 12, magic_length = 4 };
 
 
-typedef struct s_msg_header {
+typedef struct s_message_header {
   unsigned char magic[magic_length];       // 4-byte network identifier
   unsigned char command[command_length];   // 12-byte command name
   uint32_t size;                           // size of message payload
   unsigned char checksum[checksum_length]; // used to verify message payload
-} t_msg_header;
+} t_message_header;
 
-typedef struct s_msg {
-  t_msg_header msg_header;
+typedef struct s_message {
+  t_message_header msg_header;
   unsigned char *payload; // actual contents of the message; message body
-} t_msg;
+} t_message;
 
 // contains information about network addresses
 typedef struct s_net_addr {
   uint32_t time;
   uint64_t services;
-  unsigned char ip[16];
+  char ip[16];
   uint16_t port;
 } t_net_addr;
 
@@ -32,7 +32,7 @@ typedef struct s_var_str {
   char *string;
 } t_var_str;
 
-typedef struct s_msg_version {
+typedef struct s_version_payload {
   int32_t version;
   uint64_t services;
   int64_t timestamp;
@@ -42,7 +42,7 @@ typedef struct s_msg_version {
   t_var_str user_agent;
   int32_t start_height;
   bool relay;
-} t_msg_version;
+} t_version_payload;
 
 
 #endif
