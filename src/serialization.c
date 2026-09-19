@@ -14,7 +14,6 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
-
 // Concatenate byte-by-byte of the value in little endian order
 
 void pack_int16(unsigned char *buf, uint16_t i) {
@@ -160,6 +159,18 @@ void pack_net_addr(unsigned char *buf, t_net_addr net_addr, bool is_ipv4,
   memcpy(buf, services, 8);
   memcpy(buf, ip, 16);
   memcpy(buf, port, 2);
+}
+
+
+void pack_header(unsigned char *buf, t_message_header header) {
+  unsigned char size[4];
+
+  pack_int32(size, header.size);
+
+  memcpy(buf, header.magic, magic_length);
+  memcpy(buf, header.command, command_length);
+  memcpy(buf, size, 4);
+  memcpy(buf, header.checksum, checksum_length);
 }
 
 
