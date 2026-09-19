@@ -1,6 +1,7 @@
 #include "netbase.h"
 #include "utils.h"
 
+
 struct addrinfo *look_up_host(char *hostname) {
   // Does DNS look up; finds IPs from a hostname
   struct addrinfo hints; // actual struct

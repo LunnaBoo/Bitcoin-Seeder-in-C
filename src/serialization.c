@@ -145,7 +145,7 @@ void pack_net_addr(unsigned char *buf, t_net_addr net_addr, bool is_ipv4,
   unsigned char ip[16];  // big endian
   unsigned char port[2]; // big endian
 
-  pack_int16(time, net_addr.time);
+  pack_int32(time, net_addr.time);
   pack_int64(services, net_addr.services);
   pack_ip(ip, net_addr.ip, is_ipv4);
   pack_port(port, net_addr.port);
