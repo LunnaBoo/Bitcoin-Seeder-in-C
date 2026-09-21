@@ -1,8 +1,6 @@
 #ifndef NETBASE_H
 #define NETBASE_H
 
-#define PORT "8333"
-
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>      // getaddrinfo + addrinfo

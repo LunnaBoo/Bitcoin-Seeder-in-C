@@ -1,6 +1,7 @@
 #include "netbase.h"
 #include "utils.h"
 
+#define ADDRINFO_PORT "8333"
 
 struct addrinfo *look_up_host(char *hostname) {
   // Does DNS look up; finds IPs from a hostname
@@ -13,7 +14,7 @@ struct addrinfo *look_up_host(char *hostname) {
   hints.ai_socktype = SOCK_STREAM;
 
   // service field MUST be port 8333
-  status = getaddrinfo(hostname, PORT, &hints,
+  status = getaddrinfo(hostname, ADDRINFO_PORT, &hints,
                        &res); // call getaddrinfo to fill addrinfo
   if (status != 0) {
     fprintf(stderr, "getaddrinfo: %s\n",

@@ -9,16 +9,16 @@
  */
 
 #include "serialization.h"
+#include "protocol.h"
 
 // Concatenate byte-by-byte of the value in little endian order
-
-void pack_int16(unsigned char *buf, uint16_t i) {
+/*
+static void pack_int16(unsigned char *buf, uint16_t i) {
   *(buf++) = i;
   *(buf++) = i >> 8;
 }
-
-
-void pack_int32(unsigned char *buf, uint32_t i) {
+*/
+static void pack_int32(unsigned char *buf, uint32_t i) {
   *(buf++) = i;
   *(buf++) = i >> 8;
   *(buf++) = i >> 16;
@@ -26,7 +26,7 @@ void pack_int32(unsigned char *buf, uint32_t i) {
 }
 
 
-void pack_int64(unsigned char *buf, uint64_t i) {
+static void pack_int64(unsigned char *buf, uint64_t i) {
   *(buf++) = i;
   *(buf++) = i >> 8;
   *(buf++) = i >> 16;
@@ -37,8 +37,8 @@ void pack_int64(unsigned char *buf, uint64_t i) {
   *(buf++) = i >> 56;
 }
 
-
-int16_t unpack_int16(unsigned char *buf) {
+/*
+static int16_t unpack_int16(unsigned char *buf) {
   uint16_t i2;
   int i;
 
@@ -52,12 +52,12 @@ int16_t unpack_int16(unsigned char *buf) {
 }
 
 
-uint16_t unpack_uint16(unsigned char *buf) {
+static uint16_t unpack_uint16(unsigned char *buf) {
   return ((uint16_t)buf[1] << 8) | buf[0];
 }
 
 
-int32_t unpack_int32(unsigned char *buf) {
+static int32_t unpack_int32(unsigned char *buf) {
   uint32_t i2;
   int32_t i;
 
@@ -72,13 +72,13 @@ int32_t unpack_int32(unsigned char *buf) {
 }
 
 
-uint32_t unpack_uint32(unsigned char *buf) {
+static uint32_t unpack_uint32(unsigned char *buf) {
   return buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) |
          ((uint32_t)buf[3] << 24);
 }
 
 
-int64_t unpack_int64(unsigned char *buf) {
+static int64_t unpack_int64(unsigned char *buf) {
   uint64_t i2;
   int64_t i;
 
@@ -95,15 +95,15 @@ int64_t unpack_int64(unsigned char *buf) {
 }
 
 
-uint64_t unpack_uint64(unsigned char *buf) {
+static uint64_t unpack_uint64(unsigned char *buf) {
   return buf[0] | ((uint64_t)buf[1] << 8 | ((uint64_t)buf[2] << 16) |
                    ((uint64_t)buf[3] << 24) | ((uint64_t)buf[4] << 32) |
                    ((uint64_t)buf[5] << 40) | ((uint64_t)buf[6] << 48) |
                    ((uint64_t)buf[7] << 56));
 }
+*/
 
-
-void pack_var_str(unsigned char *buf, t_var_str str) {
+static void pack_var_str(unsigned char *buf, t_var_str str) {
   // pack length
   // pack char[i] while i < length
   int i = 0;
@@ -117,13 +117,15 @@ void pack_var_str(unsigned char *buf, t_var_str str) {
 }
 
 
-void pack_port(unsigned char *buf, uint16_t port) {
+static void pack_port(unsigned char *buf, uint16_t port) {
   port = htons(port);
   memcpy(buf, &port, 2);
 }
 
-
-int pack_ip(unsigned char *buf, char *ip, bool is_ipv4) {
+/*
+static int pack_ip(unsigned char *buf, char *ip, bool is_ipv4) {
+  // serializes IPs from string to network order
+  // (this function was a mistake but now i'm embarassed of removing it)
   if (is_ipv4) {
     memset(buf, 0x00, 10);
     buf[10] = 0xFF;
@@ -136,42 +138,49 @@ int pack_ip(unsigned char *buf, char *ip, bool is_ipv4) {
   }
   return 0;
 }
+*/
 
-
-void pack_net_addr(unsigned char *buf, t_net_addr net_addr, bool is_ipv4,
-                   bool has_time) {
+static void pack_net_addr(unsigned char *buf, t_net_addr net_addr,
+                          bool has_time) {
   unsigned char time[4];
   unsigned char services[8];
-  unsigned char ip[16];  // big endian
   unsigned char port[2]; // big endian
+  int offset = 0;
 
   pack_int32(time, net_addr.time);
   pack_int64(services, net_addr.services);
-  pack_ip(ip, net_addr.ip, is_ipv4);
   pack_port(port, net_addr.port);
 
-  if (has_time)
+  if (has_time) {
     memcpy(buf, time, 4);
-  memcpy(buf, services, 8);
-  memcpy(buf, ip, 16);
-  memcpy(buf, port, 2);
+    offset += 4;
+  }
+  memcpy(buf + offset, services, 8);
+  offset += 8;
+  memcpy(buf + offset, net_addr.ip, 16); // already unsigned char
+  offset += 16;
+  memcpy(buf + offset, port, 2);
 }
 
 
-void pack_header(unsigned char *buf, t_message_header header) {
+static void pack_header(unsigned char *buf, t_message_header header) {
   unsigned char size[4];
+  int offset = 0;
 
   pack_int32(size, header.size);
 
   memcpy(buf, header.magic, magic_length);
-  memcpy(buf, header.command, command_length);
-  memcpy(buf, size, 4);
-  memcpy(buf, header.checksum, checksum_length);
+  offset += magic_length;
+  memcpy(buf + offset, header.command, command_length);
+  offset += command_length;
+  memcpy(buf + offset, size, 4);
+  offset += 4;
+  memcpy(buf + offset, header.checksum, checksum_length);
 }
 
 
-void pack_version(unsigned char *buf, t_version_payload payload,
-                  bool is_recv_ipv4, bool is_from_ipv4) {
+int pack_version_payload(unsigned char *buf, t_version_payload payload) {
+  // return payload_len
   unsigned char version[4];
   unsigned char services[8];
   unsigned char timestamp[8];
@@ -181,24 +190,70 @@ void pack_version(unsigned char *buf, t_version_payload payload,
   unsigned char user_agent[payload.user_agent.length + 1];
   unsigned char start_height[4];
   unsigned char relay[1];
+  int payload_len;
+  int offset = 0;
 
   pack_int32(version, payload.version);
   pack_int64(services, payload.services);
   pack_int64(timestamp, payload.timestamp);
-  pack_net_addr(addr_recv, payload.addr_recv, is_recv_ipv4, false);
-  pack_net_addr(addr_from, payload.addr_from, is_from_ipv4, false);
+  pack_net_addr(addr_recv, payload.addr_recv, false);
+  pack_net_addr(addr_from, payload.addr_from, false);
   pack_int64(nonce, payload.nonce);
   pack_var_str(user_agent, payload.user_agent);
   pack_int32(start_height, payload.start_height);
   memcpy(relay, &payload.relay, 1);
 
   memcpy(buf, version, 4);
-  memcpy(buf, services, 8);
-  memcpy(buf, timestamp, 8);
-  memcpy(buf, addr_recv, 26);
-  memcpy(buf, addr_from, 26);
-  memcpy(buf, nonce, 8);
-  memcpy(buf, user_agent, payload.user_agent.length + 1);
-  memcpy(buf, start_height, 4);
-  memcpy(buf, relay, 1);
+  offset += 4;
+  memcpy(buf + offset, services, 8);
+  offset += 8;
+  memcpy(buf + offset, timestamp, 8);
+  offset += 8;
+  memcpy(buf + offset, addr_recv, 26);
+  offset += 26;
+  memcpy(buf + offset, addr_from, 26);
+  offset += 26;
+  memcpy(buf + offset, nonce, 8);
+  offset += 8;
+  payload_len = 80;
+  memcpy(buf + offset, user_agent, payload.user_agent.length + 1);
+  offset += payload.user_agent.length + 1;
+  payload_len += payload.user_agent.length + 1;
+  memcpy(buf + offset, start_height, 4);
+  offset += 4;
+  memcpy(buf + offset, relay, 1);
+  payload_len += 5;
+  return payload_len;
 }
+
+
+void pack_message(unsigned char *buf, t_message message, size_t payload_len) {
+  pack_header(buf, message.msg_header);
+  memcpy(buf + 24, message.payload, payload_len);
+}
+
+
+int get_peer_ip(unsigned char *buf, int fd) {
+  // Writes peer ip to a buffer (already serialized)
+  struct sockaddr_storage addr;
+  socklen_t len = sizeof(addr);
+
+  if (getpeername(fd, (struct sockaddr *)&addr, &len) == 0) {
+    if (addr.ss_family == AF_INET) {
+      struct sockaddr_in *s = (struct sockaddr_in *)&addr;
+
+      memset(buf, 0x00, 10);
+      buf[10] = 0xFF;
+      buf[11] = 0xFF;
+      memcpy(buf + 12, &s->sin_addr, 4);
+    } else {
+      struct sockaddr_in6 *s = (struct sockaddr_in6 *)&addr;
+      memcpy(buf, &s->sin6_addr, 16); // UNTESTED - MAY NOT WORK
+    }
+  } else {
+    return 1;
+  }
+  return 0;
+}
+
+// void pack_addr(unsigned char *buf, t_addr_payload)
