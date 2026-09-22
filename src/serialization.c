@@ -10,6 +10,8 @@
 
 #include "serialization.h"
 #include "protocol.h"
+#include <stdlib.h>
+#include <sys/types.h>
 
 // Concatenate byte-by-byte of the value in little endian order
 /*
@@ -37,7 +39,7 @@ static void pack_int64(unsigned char *buf, uint64_t i) {
   *(buf++) = i >> 56;
 }
 
-/*
+
 static int16_t unpack_int16(unsigned char *buf) {
   uint16_t i2;
   int i;
@@ -101,7 +103,7 @@ static uint64_t unpack_uint64(unsigned char *buf) {
                    ((uint64_t)buf[5] << 40) | ((uint64_t)buf[6] << 48) |
                    ((uint64_t)buf[7] << 56));
 }
-*/
+
 
 static void pack_var_str(unsigned char *buf, t_var_str str) {
   // pack length
@@ -230,6 +232,105 @@ int pack_version_payload(unsigned char *buf, t_version_payload payload) {
 void pack_message(unsigned char *buf, t_message message, size_t payload_len) {
   pack_header(buf, message.msg_header);
   memcpy(buf + 24, message.payload, payload_len);
+}
+
+
+static int unpack_header(unsigned char *buf, t_message_header *header) {
+  int offset;
+  unsigned char magic[magic_length];
+  unsigned char command[command_length];
+  uint32_t size;
+  unsigned char checksum[checksum_length];
+
+  memcpy(magic, buf, magic_length);
+  offset += magic_length;
+  memcpy(command, buf + offset, command_length);
+  offset += command_length;
+  size = unpack_uint32(buf + offset);
+  offset += 4;
+  memcpy(checksum, buf + offset, checksum_length);
+  offset += checksum_length;
+
+  for (int i = 0; i < magic_length; i++)
+    header->magic[i] = magic[i];
+  for (int i = 0; i < command_length; i++)
+    header->command[i] = command[i];
+  header->size = size;
+  for (int i = 0; i < checksum_length; i++)
+    header->checksum[i] = checksum[i];
+
+  return offset;
+}
+
+
+typedef struct s_reader {
+  unsigned char *buf;
+  size_t current_position;
+  size_t length;
+} t_reader;
+
+size_t check_available_bytes(t_reader *reader) {
+  if ((reader->length - reader->current_position) <= 0)
+    return 0;
+  else
+    return (reader->length - reader->current_position);
+}
+
+unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
+  if ((check_available_bytes(reader) < bytes_to_write))
+    return NULL;
+  unsigned char *p = reader->buf + reader->current_position;
+  reader->current_position += bytes_to_write;
+  return p;
+}
+// msg payload must be initialized before mcmpying into it
+// TODO: refactor / rework later (nothing good happens after 3 AM)
+int unpack_message(t_message **msgs, size_t *msg_count,
+                   const unsigned char *buf, const size_t buf_len) {
+  t_message_header header;
+  t_reader reader;
+  unsigned char *buf_cursor;
+  unsigned int array_limit = 5;
+
+  reader.buf = (unsigned char *)buf;
+  reader.current_position = 0;
+  reader.length = buf_len;
+
+  *msgs = malloc(array_limit * sizeof(t_message));
+  if (*msgs == NULL)
+    return 1;
+  *msg_count = 0;
+
+  while (reader.current_position < buf_len) {
+    if (*msg_count >= array_limit) {
+      array_limit *= 2;
+      t_message *tmp = realloc(*msgs, array_limit * sizeof(t_message));
+      if (tmp == NULL)
+        return 1;
+      *msgs = tmp;
+    }
+    // get header
+    buf_cursor = check_overflow(&reader, 24);
+    if (buf_cursor == NULL)
+      return 1;
+    unpack_header(buf_cursor, &header);
+    (*msgs)[*msg_count].msg_header = header;
+
+    // get payload
+    buf_cursor = check_overflow(&reader, header.size);
+    if (buf_cursor == NULL)
+      return 1;
+    memcpy((*msgs)[*msg_count].payload, buf_cursor, header.size);
+
+    *msg_count += 1;
+  }
+  if (*msg_count < array_limit) {
+    t_message *tmp = realloc(*msgs, *msg_count * sizeof(t_message));
+    if (tmp == NULL)
+      return 1;
+    *msgs = tmp;
+  }
+  return 0;
 }
 
 

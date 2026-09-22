@@ -50,6 +50,8 @@ int main(void) {
     printf("\nConnection closed.\n");
   // printf("recv errno = %d (%s)\n", errno, strerror(errno));
 
+  //  deserialize(&buff, byte_num)
+
   freeaddrinfo(res);
   return 0;
 }
