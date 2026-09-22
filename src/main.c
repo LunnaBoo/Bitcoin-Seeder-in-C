@@ -46,6 +46,13 @@ int main(void) {
   for (int i = 0; i < byte_num; i++)
     printf("%02x ", (unsigned char)buffer[i]);
   printf("\n");
+
+  t_message *msgs;
+  size_t msg_count;
+
+  unpack_message(&msgs, &msg_count, (unsigned char *)buffer, byte_num);
+  // test_unpack_message();
+
   if (byte_num == 0)
     printf("\nConnection closed.\n");
   // printf("recv errno = %d (%s)\n", errno, strerror(errno));

@@ -236,7 +236,7 @@ void pack_message(unsigned char *buf, t_message message, size_t payload_len) {
 
 
 static int unpack_header(unsigned char *buf, t_message_header *header) {
-  int offset;
+  int offset = 0;
   unsigned char magic[magic_length];
   unsigned char command[command_length];
   uint32_t size;
@@ -270,7 +270,7 @@ typedef struct s_reader {
 } t_reader;
 
 size_t check_available_bytes(t_reader *reader) {
-  if ((reader->length - reader->current_position) <= 0)
+  if (reader->current_position >= reader->length)
     return 0;
   else
     return (reader->length - reader->current_position);
@@ -279,17 +279,17 @@ size_t check_available_bytes(t_reader *reader) {
 unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
   if ((check_available_bytes(reader) < bytes_to_write))
     return NULL;
-  unsigned char *p = reader->buf + reader->current_position;
+  unsigned char *p = reader->buf + reader->current_position; // CHECK FOR BUG
   reader->current_position += bytes_to_write;
   return p;
 }
-// msg payload must be initialized before mcmpying into it
-// TODO: refactor / rework later (nothing good happens after 3 AM)
+
 int unpack_message(t_message **msgs, size_t *msg_count,
                    const unsigned char *buf, const size_t buf_len) {
   t_message_header header;
   t_reader reader;
   unsigned char *buf_cursor;
+  unsigned char payload_buf[buf_len];
   unsigned int array_limit = 5;
 
   reader.buf = (unsigned char *)buf;
@@ -320,7 +320,8 @@ int unpack_message(t_message **msgs, size_t *msg_count,
     buf_cursor = check_overflow(&reader, header.size);
     if (buf_cursor == NULL)
       return 1;
-    memcpy((*msgs)[*msg_count].payload, buf_cursor, header.size);
+    memcpy(payload_buf, buf_cursor, header.size);
+    (*msgs)[*msg_count].payload = payload_buf;
 
     *msg_count += 1;
   }
@@ -332,7 +333,14 @@ int unpack_message(t_message **msgs, size_t *msg_count,
   }
   return 0;
 }
+/*
+int test_unpack_message(unsigned char *buf, size_t buf_len) {
+  t_message *msgs;
+  size_t msg_count;
 
+  unpack_message(&msgs, &msg_count, buf, buf_len);
+}
+*/
 
 int get_peer_ip(unsigned char *buf, int fd) {
   // Writes peer ip to a buffer (already serialized)
