@@ -47,6 +47,10 @@ int main(void) {
     printf("%02x ", (unsigned char)buffer[i]);
   printf("\n");
 
+  printf("\nDEBUG:\n");
+  test_unpack_message((unsigned char *)buffer, (size_t)byte_num);
+  return 1;
+
   t_message *msgs;
   size_t msg_count;
 

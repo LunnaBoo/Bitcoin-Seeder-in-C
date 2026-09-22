@@ -263,26 +263,22 @@ static int unpack_header(unsigned char *buf, t_message_header *header) {
 }
 
 
-typedef struct s_reader {
-  unsigned char *buf;
-  size_t current_position;
-  size_t length;
-} t_reader;
-
-size_t check_available_bytes(t_reader *reader) {
+static size_t check_available_bytes(t_reader *reader) {
   if (reader->current_position >= reader->length)
     return 0;
   else
     return (reader->length - reader->current_position);
 }
 
+
 unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
   if ((check_available_bytes(reader) < bytes_to_write))
     return NULL;
-  unsigned char *p = reader->buf + reader->current_position; // CHECK FOR BUG
+  unsigned char *p = reader->buf + reader->current_position;
   reader->current_position += bytes_to_write;
   return p;
 }
+
 
 int unpack_message(t_message **msgs, size_t *msg_count,
                    const unsigned char *buf, const size_t buf_len) {
@@ -333,14 +329,32 @@ int unpack_message(t_message **msgs, size_t *msg_count,
   }
   return 0;
 }
-/*
+
 int test_unpack_message(unsigned char *buf, size_t buf_len) {
   t_message *msgs;
   size_t msg_count;
+  int n = 0;
 
   unpack_message(&msgs, &msg_count, buf, buf_len);
+  while (n < msg_count) {
+    printf("magic: ");
+    for (int i = 0; i < magic_length; i++)
+      printf("%02hhx ", msgs[n].msg_header.magic[i]);
+    printf("\ncommand: ");
+    for (int i = 0; i < command_length; i++)
+      printf("%c ", msgs[n].msg_header.command[i]);
+    printf("\nsize: %d\n", msgs[n].msg_header.size);
+    printf("checksum: ");
+    for (int i = 0; i < checksum_length; i++)
+      printf("%02hhx ", msgs[n].msg_header.checksum[i]);
+    printf("\n");
+    n++;
+  }
+  // payload
+
+  return 0;
 }
-*/
+
 
 int get_peer_ip(unsigned char *buf, int fd) {
   // Writes peer ip to a buffer (already serialized)

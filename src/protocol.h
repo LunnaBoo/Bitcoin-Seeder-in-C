@@ -13,6 +13,8 @@ enum { main_net = 1, test_net = 2, test_net3 = 3, sig_net = 4, namecoin = 5 };
 #define USER_AGENT "/boo:0.1.0/"
 #define NONCE 0x0539a019ca550825ULL
 
+#define VERSION_PAYLOAD_LEN 97
+
 typedef struct s_message_header {
   unsigned char magic[magic_length];       // 4-byte network identifier
   unsigned char command[command_length];   // 12-byte command name
