@@ -5,7 +5,6 @@
 #include "utils.h"
 #include <arpa/inet.h>
 
-
 typedef struct s_reader {
   unsigned char *buf;
   size_t current_position;
@@ -21,6 +20,5 @@ int get_peer_ip(unsigned char *buf, int fd);
 unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write);
 
 int test_unpack_message(unsigned char *buf, size_t buf_len);
-
 
 #endif

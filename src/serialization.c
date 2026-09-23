@@ -219,7 +219,8 @@ int pack_version_payload(unsigned char *buf, t_version_payload payload) {
 
 void pack_message(unsigned char *buf, t_message message, size_t payload_len) {
   pack_header(buf, message.msg_header);
-  memcpy(buf + 24, message.payload, payload_len);
+  if (payload_len > 0)
+    memcpy(buf + 24, message.payload, payload_len);
 }
 
 static int unpack_header(unsigned char *buf, t_message_header *header) {
@@ -313,7 +314,7 @@ int unpack_message(t_message **msgs, size_t *msg_count,
   }
   return 0;
 }
-
+// DEBUG: Must go to tests dir
 int test_unpack_message(unsigned char *buf, size_t buf_len) {
   t_message *msgs;
   size_t msg_count;
@@ -321,6 +322,7 @@ int test_unpack_message(unsigned char *buf, size_t buf_len) {
 
   unpack_message(&msgs, &msg_count, buf, buf_len);
   while ((size_t)n < msg_count) {
+    printf("\n\n");
     printf("magic: ");
     for (int i = 0; i < magic_length; i++)
       printf("%02hhx ", msgs[n].msg_header.magic[i]);
@@ -331,13 +333,17 @@ int test_unpack_message(unsigned char *buf, size_t buf_len) {
     printf("checksum: ");
     for (int i = 0; i < checksum_length; i++)
       printf("%02hhx ", msgs[n].msg_header.checksum[i]);
-    printf("\n");
     n++;
   }
   // payload
-
+  printf("\n");
   return 0;
 }
+// DEBUG
+
+// TODO: must be implemented for task 2
+// int unpack_version_payload(t_message *msg, t_version_payload
+// *version_payload);
 
 int get_peer_ip(unsigned char *buf, int fd) {
   // Writes peer ip to a buffer (already serialized)
