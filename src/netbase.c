@@ -24,13 +24,11 @@ struct addrinfo *look_up_host(char *hostname) {
   return res;
 }
 
-
 int connect_socket(struct addrinfo *res, int timeout) {
   // iterates through addrinfo linked list and tries to connect to an IP
   int status;
   int socket_fd;
   struct addrinfo *p;
-
 
   for (p = res; p != NULL; p = p->ai_next) {
     if ((socket_fd =

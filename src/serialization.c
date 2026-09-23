@@ -27,7 +27,6 @@ static void pack_int32(unsigned char *buf, uint32_t i) {
   *(buf++) = i >> 24;
 }
 
-
 static void pack_int64(unsigned char *buf, uint64_t i) {
   *(buf++) = i;
   *(buf++) = i >> 8;
@@ -38,7 +37,6 @@ static void pack_int64(unsigned char *buf, uint64_t i) {
   *(buf++) = i >> 48;
   *(buf++) = i >> 56;
 }
-
 
 static int16_t unpack_int16(unsigned char *buf) {
   uint16_t i2;
@@ -53,11 +51,9 @@ static int16_t unpack_int16(unsigned char *buf) {
   return i;
 }
 
-
 static uint16_t unpack_uint16(unsigned char *buf) {
   return ((uint16_t)buf[1] << 8) | buf[0];
 }
-
 
 static int32_t unpack_int32(unsigned char *buf) {
   uint32_t i2;
@@ -73,12 +69,10 @@ static int32_t unpack_int32(unsigned char *buf) {
   return i;
 }
 
-
 static uint32_t unpack_uint32(unsigned char *buf) {
   return buf[0] | ((uint32_t)buf[1] << 8) | ((uint32_t)buf[2] << 16) |
          ((uint32_t)buf[3] << 24);
 }
-
 
 static int64_t unpack_int64(unsigned char *buf) {
   uint64_t i2;
@@ -96,14 +90,12 @@ static int64_t unpack_int64(unsigned char *buf) {
   return i;
 }
 
-
 static uint64_t unpack_uint64(unsigned char *buf) {
   return buf[0] | ((uint64_t)buf[1] << 8 | ((uint64_t)buf[2] << 16) |
                    ((uint64_t)buf[3] << 24) | ((uint64_t)buf[4] << 32) |
                    ((uint64_t)buf[5] << 40) | ((uint64_t)buf[6] << 48) |
                    ((uint64_t)buf[7] << 56));
 }
-
 
 static void pack_var_str(unsigned char *buf, t_var_str str) {
   // pack length
@@ -117,7 +109,6 @@ static void pack_var_str(unsigned char *buf, t_var_str str) {
     i++;
   }
 }
-
 
 static void pack_port(unsigned char *buf, uint16_t port) {
   port = htons(port);
@@ -164,7 +155,6 @@ static void pack_net_addr(unsigned char *buf, t_net_addr net_addr,
   memcpy(buf + offset, port, 2);
 }
 
-
 static void pack_header(unsigned char *buf, t_message_header header) {
   unsigned char size[4];
   int offset = 0;
@@ -179,7 +169,6 @@ static void pack_header(unsigned char *buf, t_message_header header) {
   offset += 4;
   memcpy(buf + offset, header.checksum, checksum_length);
 }
-
 
 int pack_version_payload(unsigned char *buf, t_version_payload payload) {
   // return payload_len
@@ -228,12 +217,10 @@ int pack_version_payload(unsigned char *buf, t_version_payload payload) {
   return payload_len;
 }
 
-
 void pack_message(unsigned char *buf, t_message message, size_t payload_len) {
   pack_header(buf, message.msg_header);
   memcpy(buf + 24, message.payload, payload_len);
 }
-
 
 static int unpack_header(unsigned char *buf, t_message_header *header) {
   int offset = 0;
@@ -262,14 +249,12 @@ static int unpack_header(unsigned char *buf, t_message_header *header) {
   return offset;
 }
 
-
 static size_t check_available_bytes(t_reader *reader) {
   if (reader->current_position >= reader->length)
     return 0;
   else
     return (reader->length - reader->current_position);
 }
-
 
 unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
   if ((check_available_bytes(reader) < bytes_to_write))
@@ -278,7 +263,6 @@ unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
   reader->current_position += bytes_to_write;
   return p;
 }
-
 
 int unpack_message(t_message **msgs, size_t *msg_count,
                    const unsigned char *buf, const size_t buf_len) {
@@ -336,7 +320,7 @@ int test_unpack_message(unsigned char *buf, size_t buf_len) {
   int n = 0;
 
   unpack_message(&msgs, &msg_count, buf, buf_len);
-  while (n < msg_count) {
+  while ((size_t)n < msg_count) {
     printf("magic: ");
     for (int i = 0; i < magic_length; i++)
       printf("%02hhx ", msgs[n].msg_header.magic[i]);
@@ -354,7 +338,6 @@ int test_unpack_message(unsigned char *buf, size_t buf_len) {
 
   return 0;
 }
-
 
 int get_peer_ip(unsigned char *buf, int fd) {
   // Writes peer ip to a buffer (already serialized)

@@ -1,4 +1,4 @@
-CFLAGS = -Wall -Wextra -pthread
+CFLAGS = -Wall -Wextra -Werror -pthread
 LDLIBS = -lcrypto
 TARGET = dnsseed
 RM = rm -rf
