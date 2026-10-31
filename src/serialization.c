@@ -317,33 +317,26 @@ int unpack_message(t_message **msgs, size_t *msg_count,
   }
   return 0;
 }
-// DEBUG: Must go to tests dir
-int print_message(t_message *msgs, size_t msg_count) {
-  int n = 0;
 
-  while ((size_t)n < msg_count) {
-    printf("\n\n");
-    printf("magic: ");
-    for (int i = 0; i < magic_length; i++)
-      printf("%02hhx ", msgs[n].msg_header.magic[i]);
-    printf("\ncommand: ");
-    for (int i = 0; i < command_length; i++)
-      printf("%c ", msgs[n].msg_header.command[i]);
-    printf("\nsize: %d\n", msgs[n].msg_header.size);
-    printf("checksum: ");
-    for (int i = 0; i < checksum_length; i++)
-      printf("%02hhx ", msgs[n].msg_header.checksum[i]);
-    n++;
-  }
-  // payload
-  printf("\n");
-  return 0;
-}
-// DEBUG
-
-// TODO: must be implemented for task 2
+// TODO: must be implemented for task 2:
 // int unpack_version_payload(t_message *msg, t_version_payload
 // *version_payload);
+
+int unpack_ping_pong_payload(t_ping_pong_payload *payload,
+                             const unsigned char *buf, const size_t buf_len) {
+  t_reader reader;
+  unsigned char *buf_cursor;
+
+  reader.buf = (unsigned char *)buf;
+  reader.current_position = 0;
+  reader.length = buf_len;
+
+  if (check_overflow(&reader, buf_len) == NULL)
+    return 1;
+  payload->nonce = unpack_uint64((unsigned char *)buf);
+
+  return 0;
+}
 
 int get_peer_ip(unsigned char *buf, int fd) {
   // Writes peer ip to a buffer (already serialized)

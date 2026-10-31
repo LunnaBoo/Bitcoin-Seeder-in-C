@@ -1,4 +1,5 @@
 #include "bitcoin.h"
+#include "debug.h"
 #include "netbase.h"
 #include "protocol.h"
 #include "serialization.h"

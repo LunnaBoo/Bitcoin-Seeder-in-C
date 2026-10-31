@@ -32,7 +32,6 @@ void send_verack(int fd, const int network, const unsigned char *peer_ip,
     memcpy(buf, serialized_msg, 24);
 }
 
-// Needs testing
 void send_ping(int fd, const int network, unsigned char *buf) {
   t_ping_pong_payload ping_payload;
   t_message message;
@@ -44,7 +43,7 @@ void send_ping(int fd, const int network, unsigned char *buf) {
   message_init(&message, "ping", network, serialized_payload,
                PING_PONG_PAYLOAD_LEN);
   pack_message(serialized_message, message, PING_PONG_PAYLOAD_LEN);
-  send(fd, serialized_message, PING_PONG_PAYLOAD_LEN + 24, 0);
+  // send(fd, serialized_message, PING_PONG_PAYLOAD_LEN + 24, 0);
   if (buf != NULL)
     memcpy(buf, serialized_message, PING_PONG_PAYLOAD_LEN + 24);
 }
