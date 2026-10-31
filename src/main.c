@@ -2,8 +2,10 @@
 #include "netbase.h"
 #include "protocol.h"
 #include "serialization.h"
+#include <stdalign.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/socket.h>
 
 int get_peer_ip(unsigned char *buf, int fd);
@@ -21,6 +23,8 @@ int main(void) {
 
   // print IPs found
   print_addresses(res, hostname, 3);
+
+  // Connect to socket
   if ((socket_fd = connect_socket(res, 3)) == -1) {
     printf("ERROR: connect_socket() failed.\n");
     return 1;
@@ -31,35 +35,46 @@ int main(void) {
 
   printf("Connection established.\n\n");
 
+  t_message *msgs;
+  size_t msg_count;
+
   // SEND VERSION
   unsigned char serialized_message[121];
   send_version(socket_fd, main_net, peer_ip, serialized_message);
+
+  // Prints deserialized version header
   printf("--------------------\nMessage sent:");
-  test_unpack_message(serialized_message, 121);
+  unpack_message(&msgs, &msg_count, serialized_message, 121);
+  print_message(msgs, msg_count);
 
-  //  Prints incoming message and warns if connection was closed
+  //  Receives message
   int byte_num = recv(socket_fd, buffer, sizeof buffer, 0);
+
+  // Prints received messages deserialized headers
   printf("--------------------\nMessage received:");
-  test_unpack_message((unsigned char *)buffer, byte_num);
-  t_message *msgs;
-  size_t msg_count;
-  t_message verack;
-
+  free(msgs);
+  msgs = NULL;
   unpack_message(&msgs, &msg_count, (unsigned char *)buffer, byte_num);
-  // test_unpack_message();
+  print_message(msgs, msg_count);
 
-  message_init(&verack, "verack", main_net, NULL, 0);
   unsigned char serialized_verack[24];
   send_verack(socket_fd, main_net, peer_ip, serialized_verack);
+
+  // Prints deserialized verack
   printf("--------------------\nMessage sent:");
-  test_unpack_message(serialized_verack, 24);
+  free(msgs);
+  msgs = NULL;
+  unpack_message(&msgs, &msg_count, serialized_verack, 24);
+  print_message(msgs, msg_count);
+  // HANDSHAKE IS FINISHED \o/
 
-  if (byte_num == 0)
-    printf("\nConnection closed.\n");
-  // printf("recv errno = %d (%s)\n", errno, strerror(errno));
+  // Listen for new messages, and implement ping pong
+  while (byte_num > 0) {
+    byte_num = recv(socket_fd, buffer, sizeof buffer, 0);
+  }
 
-  //  deserialize(&buff, byte_num)
-
+  // Connection was closed! Free and return
+  printf("\nConnection closed.\n");
   freeaddrinfo(res);
   return 0;
 }

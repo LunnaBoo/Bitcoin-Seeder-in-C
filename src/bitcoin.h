@@ -8,5 +8,6 @@ void send_version(int fd, const int network, const unsigned char *peer_ip,
                   unsigned char *buf);
 void send_verack(int fd, const int network, const unsigned char *peer_ip,
                  unsigned char *buf);
+void send_ping(int fd, const int network, unsigned char *buf);
 
 #endif

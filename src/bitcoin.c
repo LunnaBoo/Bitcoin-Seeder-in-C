@@ -2,18 +2,19 @@
 #include "protocol.h"
 #include "serialization.h"
 
+// Removed payload_len var and used VERSION_PAYLOAD_LEN everywhere instead
 void send_version(int fd, const int network, const unsigned char *peer_ip,
                   unsigned char *buf) {
   t_version_payload version_payload;
   t_message message;
   unsigned char serialized_payload[VERSION_PAYLOAD_LEN];
   unsigned char serialized_message[VERSION_PAYLOAD_LEN + 24];
-  size_t payload_len;
 
   version_payload_init(&version_payload, peer_ip);
-  payload_len = pack_version_payload(serialized_payload, version_payload);
-  message_init(&message, "version", network, serialized_payload, payload_len);
-  pack_message(serialized_message, message, payload_len);
+  pack_version_payload(serialized_payload, version_payload);
+  message_init(&message, "version", network, serialized_payload,
+               VERSION_PAYLOAD_LEN);
+  pack_message(serialized_message, message, VERSION_PAYLOAD_LEN);
   send(fd, serialized_message, VERSION_PAYLOAD_LEN + 24, 0);
   if (buf != NULL)
     memcpy(buf, serialized_message, VERSION_PAYLOAD_LEN + 24);
@@ -30,3 +31,22 @@ void send_verack(int fd, const int network, const unsigned char *peer_ip,
   if (buf != NULL)
     memcpy(buf, serialized_msg, 24);
 }
+
+// Needs testing
+void send_ping(int fd, const int network, unsigned char *buf) {
+  t_ping_pong_payload ping_payload;
+  t_message message;
+  unsigned char serialized_payload[PING_PONG_PAYLOAD_LEN];
+  unsigned char serialized_message[PING_PONG_PAYLOAD_LEN + 24];
+
+  ping_payload_init(&ping_payload);
+  pack_ping_pong_payload(serialized_payload, ping_payload);
+  message_init(&message, "ping", network, serialized_payload,
+               PING_PONG_PAYLOAD_LEN);
+  pack_message(serialized_message, message, PING_PONG_PAYLOAD_LEN);
+  send(fd, serialized_message, PING_PONG_PAYLOAD_LEN + 24, 0);
+  if (buf != NULL)
+    memcpy(buf, serialized_message, PING_PONG_PAYLOAD_LEN + 24);
+}
+
+// void send_pong(int fd, const int network, unsigned char *buf) {}

@@ -217,12 +217,15 @@ int pack_version_payload(unsigned char *buf, t_version_payload payload) {
   return payload_len;
 }
 
+void pack_ping_pong_payload(unsigned char *buf, t_ping_pong_payload payload) {
+  pack_int64(buf, payload.nonce);
+}
+
 void pack_message(unsigned char *buf, t_message message, size_t payload_len) {
   pack_header(buf, message.msg_header);
   if (payload_len > 0)
     memcpy(buf + 24, message.payload, payload_len);
 }
-
 static int unpack_header(unsigned char *buf, t_message_header *header) {
   int offset = 0;
   unsigned char magic[magic_length];
@@ -315,12 +318,9 @@ int unpack_message(t_message **msgs, size_t *msg_count,
   return 0;
 }
 // DEBUG: Must go to tests dir
-int test_unpack_message(unsigned char *buf, size_t buf_len) {
-  t_message *msgs;
-  size_t msg_count;
+int print_message(t_message *msgs, size_t msg_count) {
   int n = 0;
 
-  unpack_message(&msgs, &msg_count, buf, buf_len);
   while ((size_t)n < msg_count) {
     printf("\n\n");
     printf("magic: ");

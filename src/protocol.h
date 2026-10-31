@@ -3,6 +3,7 @@
 
 #include "netbase.h"
 #include "utils.h"
+#include <stdint.h>
 enum { checksum_length = 4, command_length = 12, magic_length = 4 };
 
 enum { main_net = 1, test_net = 2, test_net3 = 3, sig_net = 4, namecoin = 5 };
@@ -14,6 +15,7 @@ enum { main_net = 1, test_net = 2, test_net3 = 3, sig_net = 4, namecoin = 5 };
 #define NONCE 0x0539a019ca550825ULL
 
 #define VERSION_PAYLOAD_LEN 97
+#define PING_PONG_PAYLOAD_LEN 8
 
 typedef struct s_message_header {
   unsigned char magic[magic_length];       // 4-byte network identifier
@@ -64,10 +66,16 @@ typedef struct s_addr_payload {
   t_net_addr *addr_array;
 } t_addr_payload;
 
+typedef struct s_ping_pong_payload {
+  uint64_t nonce; // ping: random nonce
+                  // pong: should match received ping's nonce
+} t_ping_pong_payload;
 
 void message_init(t_message *msg, const char *cmd, const int network,
                   const unsigned char *payload, const size_t payload_len);
 void version_payload_init(t_version_payload *payload,
                           const unsigned char *recv_ip);
+void ping_payload_init(t_ping_pong_payload *payload);
+void pong_payload_init(t_ping_pong_payload *payload, uint64_t nonce);
 
 #endif

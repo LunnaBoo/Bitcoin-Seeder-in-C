@@ -2,7 +2,6 @@
 #include <openssl/evp.h>
 #include <time.h>
 
-
 // implement message creation function / struct initialization
 // leave actual operations (test node; send message; etc) to bitcoin.c/h)
 
@@ -24,33 +23,6 @@ void message_init(t_message *msg, const char *cmd, int network,
 
   msg->payload = (unsigned char *)payload;
 }
-
-void version_payload_init(t_version_payload *payload,
-                          const unsigned char *recv_ip) {
-  t_net_addr *addr_recv = &payload->addr_recv;
-  t_net_addr *addr_from = &payload->addr_from;
-
-  payload->version = VERSION;
-  payload->services = SERVICES;
-  payload->timestamp = time(NULL);
-
-  addr_recv->services = 0;
-  for (int i = 0; i < 16; i++)
-    addr_recv->ip[i] = recv_ip[i];
-  addr_recv->port = PORT;
-
-  addr_from->services = SERVICES;
-  for (int i = 0; i < 16; i++)
-    addr_from->ip[i] = 0;
-  addr_from->port = PORT;
-
-  payload->nonce = NONCE;
-  payload->user_agent.string = USER_AGENT;
-  payload->user_agent.length = strlen(USER_AGENT);
-  payload->start_height = -1; // MUST CHANGE LATER
-  payload->relay = true;
-}
-
 
 static void write_magic(t_message_header *header, const int network) {
   switch (network) {
@@ -95,4 +67,35 @@ static void dsha256(unsigned char *buf, const unsigned char *payload,
 
   EVP_Q_digest(NULL, "SHA256", NULL, payload, payload_len, hash1, &size1);
   EVP_Q_digest(NULL, "SHA256", NULL, hash1, size1, buf, &size2);
+}
+
+void version_payload_init(t_version_payload *payload,
+                          const unsigned char *recv_ip) {
+  t_net_addr *addr_recv = &payload->addr_recv;
+  t_net_addr *addr_from = &payload->addr_from;
+
+  payload->version = VERSION;
+  payload->services = SERVICES;
+  payload->timestamp = time(NULL);
+
+  addr_recv->services = 0;
+  for (int i = 0; i < 16; i++)
+    addr_recv->ip[i] = recv_ip[i];
+  addr_recv->port = PORT;
+
+  addr_from->services = SERVICES;
+  for (int i = 0; i < 16; i++)
+    addr_from->ip[i] = 0;
+  addr_from->port = PORT;
+
+  payload->nonce = NONCE;
+  payload->user_agent.string = USER_AGENT;
+  payload->user_agent.length = strlen(USER_AGENT);
+  payload->start_height = -1; // MUST CHANGE LATER
+  payload->relay = true;
+}
+
+void ping_payload_init(t_ping_pong_payload *payload) { payload->nonce = NONCE; }
+void pong_payload_init(t_ping_pong_payload *payload, uint64_t nonce) {
+  payload->nonce = nonce;
 }
