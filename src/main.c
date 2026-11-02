@@ -58,8 +58,8 @@ int main(void) {
   unpack_message(&msgs, &msg_count, (unsigned char *)buffer, byte_num);
   print_message(msgs, msg_count);
 
-  unsigned char serialized_verack[24];
-  send_verack(socket_fd, main_net, peer_ip, serialized_verack);
+  unsigned char serialized_verack[24]; // stored for printing/debug
+  send_verack(socket_fd, main_net, serialized_verack);
 
   // Prints deserialized verack
   printf("--------------------\nMessage sent:");
@@ -72,6 +72,29 @@ int main(void) {
   // Listen for new messages, and implement ping pong
   while (byte_num > 0) {
     byte_num = recv(socket_fd, buffer, sizeof buffer, 0);
+    printf("--------------------\nMessage received:");
+    free(msgs);
+    msgs = NULL;
+    msg_count = 0;
+    unpack_message(&msgs, &msg_count, (unsigned char *)buffer, byte_num);
+    print_message(msgs, msg_count);
+    static const unsigned char PING[12] = "ping";
+    for (size_t i = 0; i < msg_count; i++) {
+      if (memcmp(msgs[i].msg_header.command, PING, 12) == 0) {
+        t_ping_pong_payload ping_payload;
+        unsigned char serialized_pong[PING_PONG_PAYLOAD_LEN + 24];
+        unpack_ping_pong_payload(&ping_payload, msgs[i].payload,
+                                 msgs[i].msg_header.size);
+        send_pong(socket_fd, main_net, ping_payload.nonce, serialized_pong);
+        printf("--------------------\nMessage sent:");
+        free(msgs);
+        msgs = NULL;
+        msg_count = 0;
+        unpack_message(&msgs, &msg_count, serialized_pong,
+                       PING_PONG_PAYLOAD_LEN + 24);
+        print_message(msgs, msg_count);
+      }
+    }
   }
 
   // Connection was closed! Free and return
