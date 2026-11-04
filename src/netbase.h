@@ -10,10 +10,10 @@
 #include <sys/types.h>
 #include <unistd.h> // close()
 
-
 struct addrinfo *look_up_host(char *hostname);
 void address_printer(char *message, struct addrinfo *p);
 void print_addresses(struct addrinfo *res, char *hostname, int limit);
 int connect_socket(struct addrinfo *res, int timeout);
+int exact_read(int fd, unsigned char *buf, size_t bytes_to_read);
 
 #endif

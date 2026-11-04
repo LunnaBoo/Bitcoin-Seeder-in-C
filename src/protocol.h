@@ -16,6 +16,7 @@ enum { main_net = 1, test_net = 2, test_net3 = 3, sig_net = 4, namecoin = 5 };
 
 #define VERSION_PAYLOAD_LEN 97
 #define PING_PONG_PAYLOAD_LEN 8
+#define MAX_MSG_SIZE (0x02000000u)
 
 typedef struct s_message_header {
   unsigned char magic[magic_length];       // 4-byte network identifier

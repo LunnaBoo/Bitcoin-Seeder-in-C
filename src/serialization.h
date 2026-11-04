@@ -21,5 +21,6 @@ int unpack_ping_pong_payload(t_ping_pong_payload *payload,
 int get_peer_ip(unsigned char *buf, int fd);
 
 unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write);
+int full_read(int fd, t_message *msg);
 
 #endif

@@ -13,7 +13,7 @@ int get_peer_ip(unsigned char *buf, int fd);
 
 int main(void) {
   int socket_fd;
-  char buffer[1000];
+  t_message msg;
   struct addrinfo *res;
   char *hostname = "seed.bitcoin.sipa.be";
 
@@ -36,8 +36,10 @@ int main(void) {
 
   printf("Connection established.\n\n");
 
-  t_message *msgs;
+  // DEBUG / LOGGING
+  t_message *my_msgs;
   size_t msg_count;
+  // DEBUG / LOGGING
 
   // SEND VERSION
   unsigned char serialized_message[121];
@@ -45,55 +47,52 @@ int main(void) {
 
   // Prints deserialized version header
   printf("--------------------\nMessage sent:");
-  unpack_message(&msgs, &msg_count, serialized_message, 121);
-  print_message(msgs, msg_count);
+  unpack_message(&my_msgs, &msg_count, serialized_message, 121);
+  print_message(my_msgs, 1);
 
   //  Receives message
-  int byte_num = recv(socket_fd, buffer, sizeof buffer, 0);
+  full_read(socket_fd, &msg);
 
   // Prints received messages deserialized headers
   printf("--------------------\nMessage received:");
-  free(msgs);
-  msgs = NULL;
-  unpack_message(&msgs, &msg_count, (unsigned char *)buffer, byte_num);
-  print_message(msgs, msg_count);
+  print_message(&msg, 1);
 
   unsigned char serialized_verack[24]; // stored for printing/debug
   send_verack(socket_fd, main_net, serialized_verack);
 
   // Prints deserialized verack
   printf("--------------------\nMessage sent:");
-  free(msgs);
-  msgs = NULL;
-  unpack_message(&msgs, &msg_count, serialized_verack, 24);
-  print_message(msgs, msg_count);
+  free(my_msgs);
+  my_msgs = NULL;
+  unpack_message(&my_msgs, &msg_count, serialized_verack, 24);
+  print_message(my_msgs, msg_count);
   // HANDSHAKE IS FINISHED \o/
 
   // Listen for new messages, and implement ping pong
-  while (byte_num > 0) {
-    byte_num = recv(socket_fd, buffer, sizeof buffer, 0);
+  while (1) {
+    if (full_read(socket_fd, &msg) < 0) {
+      return 1;
+    }
+    // DEBUG / LOGGING
     printf("--------------------\nMessage received:");
-    free(msgs);
-    msgs = NULL;
-    msg_count = 0;
-    unpack_message(&msgs, &msg_count, (unsigned char *)buffer, byte_num);
-    print_message(msgs, msg_count);
+    print_message(&msg, 1);
+    // DEBUG / LOGGING
+
     static const unsigned char PING[12] = "ping";
-    for (size_t i = 0; i < msg_count; i++) {
-      if (memcmp(msgs[i].msg_header.command, PING, 12) == 0) {
-        t_ping_pong_payload ping_payload;
-        unsigned char serialized_pong[PING_PONG_PAYLOAD_LEN + 24];
-        unpack_ping_pong_payload(&ping_payload, msgs[i].payload,
-                                 msgs[i].msg_header.size);
-        send_pong(socket_fd, main_net, ping_payload.nonce, serialized_pong);
-        printf("--------------------\nMessage sent:");
-        free(msgs);
-        msgs = NULL;
-        msg_count = 0;
-        unpack_message(&msgs, &msg_count, serialized_pong,
-                       PING_PONG_PAYLOAD_LEN + 24);
-        print_message(msgs, msg_count);
-      }
+    if (memcmp(msg.msg_header.command, PING, 12) == 0) {
+      t_ping_pong_payload ping_payload;
+      unsigned char serialized_pong[PING_PONG_PAYLOAD_LEN + 24];
+      unpack_ping_pong_payload(&ping_payload, msg.payload, msg.msg_header.size);
+      send_pong(socket_fd, main_net, ping_payload.nonce, serialized_pong);
+
+      // DEBUG / LOGGING
+      printf("--------------------\nMessage sent:");
+      free(my_msgs);
+      my_msgs = NULL;
+      unpack_message(&my_msgs, &msg_count, serialized_pong,
+                     PING_PONG_PAYLOAD_LEN + 24);
+      print_message(my_msgs, msg_count);
+      // DEBUG / LOGGING
     }
   }
 

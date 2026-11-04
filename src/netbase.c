@@ -1,5 +1,7 @@
 #include "netbase.h"
+#include "serialization.h"
 #include "utils.h"
+#include <sys/types.h>
 
 #define ADDRINFO_PORT "8333"
 
@@ -76,4 +78,20 @@ int connect_socket(struct addrinfo *res, int timeout) {
     }
   }
   return -1;
+}
+
+int exact_read(int fd, unsigned char *buf, size_t bytes_to_read) {
+  size_t bytes_read = 0;
+  ssize_t current_read = 0;
+
+  while (bytes_read < bytes_to_read) {
+    current_read = recv(fd, buf + bytes_read, bytes_to_read - bytes_read, 0);
+    if (current_read < 0)
+      return -1;
+    else if (current_read == 0)
+      return 1;
+    bytes_read += current_read;
+  }
+
+  return 0;
 }

@@ -5,7 +5,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h> // memset
-
+#include <sys/types.h>
 
 #endif

@@ -10,8 +10,8 @@
 
 #include "serialization.h"
 #include "protocol.h"
-#include <stdlib.h>
-#include <sys/types.h>
+#include "utils.h"
+#include <stdint.h>
 
 // Concatenate byte-by-byte of the value in little endian order
 /*
@@ -268,6 +268,10 @@ unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
   return p;
 }
 
+// Designed to parse multiple messages at a time, which turned out to be
+// pointless. It makes a lot more sense to get 1 message at a time, but I had no
+// idea it was possible and thought I was supposed to read the whole recv()
+// buffer at once. Now I see that implies having a 32mb buffer...
 int unpack_message(t_message **msgs, size_t *msg_count,
                    const unsigned char *buf, const size_t buf_len) {
   t_message_header header;
@@ -289,8 +293,9 @@ int unpack_message(t_message **msgs, size_t *msg_count,
     if (*msg_count >= array_limit) {
       array_limit *= 2;
       t_message *tmp = realloc(*msgs, array_limit * sizeof(t_message));
-      if (tmp == NULL)
+      if (tmp == NULL) {
         return 1;
+      }
       *msgs = tmp;
     }
     // get header
@@ -311,8 +316,9 @@ int unpack_message(t_message **msgs, size_t *msg_count,
   }
   if (*msg_count < array_limit) {
     t_message *tmp = realloc(*msgs, *msg_count * sizeof(t_message));
-    if (tmp == NULL)
+    if (tmp == NULL) {
       return 1;
+    }
     *msgs = tmp;
   }
   return 0;
@@ -362,3 +368,47 @@ int get_peer_ip(unsigned char *buf, int fd) {
 }
 
 // void pack_addr(unsigned char *buf, t_addr_payload)
+
+// TODO: Write a while(1) loop that uses exact_read() to get a message header,
+// checks payload size, then does another exact_read() to get it. If
+// exact_read() returns -1 break.
+int full_read(int fd, t_message *msg) {
+  unsigned char *buf;
+  ssize_t check;
+  t_message *msgs;
+  size_t msg_count;
+  size_t payload_size;
+
+  buf = malloc(24);
+  while (1) {
+    check = exact_read(fd, buf, 24);
+    if (check < 0) // error
+      return -1;
+    else if (check == 1) // connection closed
+      return 1;
+
+    unpack_message(&msgs, &msg_count, buf, 24); // gets header
+    payload_size = msgs->msg_header.size;
+    if ((payload_size > SIZE_MAX - 24) || (payload_size > MAX_MSG_SIZE))
+      return -1;
+    unsigned char *tmp = realloc(buf, payload_size + 24);
+    if (tmp == NULL) {
+      free(buf);
+      return -1;
+    }
+    buf = tmp;
+
+    check = exact_read(fd, buf + 24, payload_size);
+
+    free(msgs);
+    msgs = NULL;
+    if (unpack_message(&msgs, &msg_count, buf, payload_size + 24) == 1)
+      return -1;
+    *msg = *msgs;
+    break;
+  }
+  free(buf);
+  buf = NULL;
+
+  return 0;
+}
