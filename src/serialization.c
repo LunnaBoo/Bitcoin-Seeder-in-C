@@ -330,8 +330,9 @@ int unpack_message(t_message **msgs, size_t *msg_count,
 
 int unpack_ping_pong_payload(t_ping_pong_payload *payload,
                              const unsigned char *buf, const size_t buf_len) {
+  // TODO: Check if this reader struct + check_overflow() are really necessary
+  // here.
   t_reader reader;
-  unsigned char *buf_cursor;
 
   reader.buf = (unsigned char *)buf;
   reader.current_position = 0;
@@ -343,6 +344,19 @@ int unpack_ping_pong_payload(t_ping_pong_payload *payload,
 
   return 0;
 }
+
+/*
+void unpack_net_addr(t_net_addr *net_addr, unsigned char *buf) {
+  net_addr->time = unpack_uint32(buf);
+  net_addr->services = unpack_uint64(buf + 4);
+  memcpy(net_addr->ip, buf + 12, 16);
+  net_addr->port = unpack_uint16(buf + 28);
+}
+
+int unpack_addr_payload(t_addr_payload *payload, const unsigned char *buf,
+                        const size_t buf_len) {
+}
+*/
 
 int get_peer_ip(unsigned char *buf, int fd) {
   // Writes peer ip to a buffer (already serialized)

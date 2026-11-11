@@ -20,11 +20,13 @@ void send_version(int fd, const int network, const unsigned char *peer_ip,
     memcpy(buf, serialized_message, VERSION_PAYLOAD_LEN + 24);
 }
 
-void send_verack(int fd, const int network, unsigned char *buf) {
+// Works for any headless message, like verack and getaddr
+void send_headless(int fd, const char *cmd, const int network,
+                   unsigned char *buf) {
   t_message msg;
   unsigned char serialized_msg[24];
 
-  message_init(&msg, "verack", network, NULL, 0);
+  message_init(&msg, cmd, network, NULL, 0);
   pack_message(serialized_msg, msg, 0);
   send(fd, serialized_msg, 24, 0);
   if (buf != NULL)

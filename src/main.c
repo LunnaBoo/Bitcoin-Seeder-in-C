@@ -58,7 +58,7 @@ int main(void) {
   print_message(&msg, 1);
 
   unsigned char serialized_verack[24]; // stored for printing/debug
-  send_verack(socket_fd, main_net, serialized_verack);
+  send_headless(socket_fd, "verack", main_net, serialized_verack);
 
   // Prints deserialized verack
   printf("--------------------\nMessage sent:");

@@ -16,7 +16,7 @@ enum { main_net = 1, test_net = 2, test_net3 = 3, sig_net = 4, namecoin = 5 };
 
 #define VERSION_PAYLOAD_LEN 97
 #define PING_PONG_PAYLOAD_LEN 8
-#define MAX_MSG_SIZE (0x02000000u)
+#define MAX_MSG_SIZE (0x02000000u) // 32 bytes
 
 typedef struct s_message_header {
   unsigned char magic[magic_length];       // 4-byte network identifier
@@ -63,7 +63,7 @@ typedef struct s_version_payload {
 // getaddr REQUESTS addresses and HAS NO PAYLOAD.
 // netaddr HAS time
 typedef struct s_addr_payload {
-  uint8_t count; // should be varint
+  uint64_t addr_count; // NOT uint64_t; It should be CompactSize
   t_net_addr *addr_array;
 } t_addr_payload;
 
