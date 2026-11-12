@@ -3,27 +3,92 @@
 #include "netbase.h"
 #include "protocol.h"
 #include "serialization.h"
+#include <getopt.h>
 #include <stdalign.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 
+typedef struct s_seeder_opts {
+  int threads; // coming soon
+  int port;
+  const char *seed;
+  const char *logfile; // path to a future logfile
+} t_seeder_opts;
+
+void cli_parsing(t_seeder_opts *opts, int argc, char **argv) {
+  static const char *help =
+      "Bitcoin-seeder (In C)\n"
+      "Options:\n"
+      "-s <seed>      Seed node to collect peers from (replaces default)\n"
+      "-t <threads>   Number of crawlers to run in parallel (default 96)\n"
+      "-l <path>      Path to logfile\n"
+      "-?, --help     Shows this text\n"
+      "\n";
+
+  bool show_help = false;
+
+  while (1) {
+    static struct option long_options[] = {
+        {"seed", required_argument, 0, 's'},
+        {"port", required_argument, 0, 'p'},
+        {"threads", required_argument, 0, 't'},
+        {"logfile", required_argument, 0, 'l'},
+        {"help", no_argument, 0, 'h'}};
+    int option_index = 0;
+    int c = getopt_long(argc, argv, "s:p:t:l:h", long_options, &option_index);
+    if (c == -1)
+      break;
+    switch (c) {
+    case 's': {
+      opts->seed = optarg;
+      break;
+    }
+    case 'p': {
+      break;
+    }
+    case 't': {
+      //
+      break;
+    }
+    case 'l': {
+      //
+      break;
+    }
+    case 'h': {
+      show_help = true;
+      break;
+    }
+    }
+    if (show_help) {
+      printf("%s", help);
+      exit(0);
+    }
+  }
+}
+
 int get_peer_ip(unsigned char *buf, int fd);
 
-int main(void) {
+int main(int argc, char **argv) {
   int socket_fd;
   t_message msg;
   struct addrinfo *res;
-  char *hostname = "seed.bitcoin.sipa.be";
+  t_seeder_opts opts;
+  opts.port = PORT;
+  opts.seed = "seed.bitcoin.sipa.be";
+  // opts.logfile
+  // opts.threads = 96;
+
+  cli_parsing(&opts, argc, argv);
 
   // DNS look up
-  res = look_up_host(hostname);
+  res = look_up_host((char *)opts.seed);
   if (res == NULL)
     return 1;
 
   // print IPs found
-  print_addresses(res, hostname, 3);
+  print_addresses(res, (char *)opts.seed, 3);
 
   // Connect to socket
   if ((socket_fd = connect_socket(res, 3)) == -1) {
