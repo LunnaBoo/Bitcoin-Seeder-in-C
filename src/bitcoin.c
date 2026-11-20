@@ -4,13 +4,13 @@
 
 // Removed payload_len var and used VERSION_PAYLOAD_LEN everywhere instead
 void send_version(int fd, const int network, const unsigned char *peer_ip,
-                  unsigned char *buf) {
+                  int my_port, unsigned char *buf) {
   t_version_payload version_payload;
   t_message message;
   unsigned char serialized_payload[VERSION_PAYLOAD_LEN];
   unsigned char serialized_message[VERSION_PAYLOAD_LEN + 24];
 
-  version_payload_init(&version_payload, peer_ip);
+  version_payload_init(&version_payload, peer_ip, my_port);
   pack_version_payload(serialized_payload, version_payload);
   message_init(&message, "version", network, serialized_payload,
                VERSION_PAYLOAD_LEN);

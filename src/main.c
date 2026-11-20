@@ -46,10 +46,14 @@ void cli_parsing(t_seeder_opts *opts, int argc, char **argv) {
       break;
     }
     case 'p': {
+      opts->port = atoi(optarg);
       break;
     }
     case 't': {
+      // if (atoi(optarg) <= 0) {
       //
+      //}
+      opts->threads = atoi(optarg);
       break;
     }
     case 'l': {
@@ -57,6 +61,10 @@ void cli_parsing(t_seeder_opts *opts, int argc, char **argv) {
       break;
     }
     case 'h': {
+      show_help = true;
+      break;
+    }
+    case '?': {
       show_help = true;
       break;
     }
@@ -75,7 +83,7 @@ int main(int argc, char **argv) {
   t_message msg;
   struct addrinfo *res;
   t_seeder_opts opts;
-  opts.port = PORT;
+  opts.port = 8333;
   opts.seed = "seed.bitcoin.sipa.be";
   // opts.logfile
   // opts.threads = 96;
@@ -108,7 +116,7 @@ int main(int argc, char **argv) {
 
   // SEND VERSION
   unsigned char serialized_message[121];
-  send_version(socket_fd, main_net, peer_ip, serialized_message);
+  send_version(socket_fd, main_net, peer_ip, opts.port, serialized_message);
 
   // Prints deserialized version header
   printf("--------------------\nMessage sent:");

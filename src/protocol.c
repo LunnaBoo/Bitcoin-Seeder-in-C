@@ -1,5 +1,6 @@
 #include "protocol.h"
 #include <openssl/evp.h>
+#include <stdlib.h>
 #include <time.h>
 
 // implement message creation function / struct initialization
@@ -70,7 +71,7 @@ static void dsha256(unsigned char *buf, const unsigned char *payload,
 }
 
 void version_payload_init(t_version_payload *payload,
-                          const unsigned char *recv_ip) {
+                          const unsigned char *recv_ip, int my_port) {
   t_net_addr *addr_recv = &payload->addr_recv;
   t_net_addr *addr_from = &payload->addr_from;
 
@@ -81,12 +82,12 @@ void version_payload_init(t_version_payload *payload,
   addr_recv->services = 0;
   for (int i = 0; i < 16; i++)
     addr_recv->ip[i] = recv_ip[i];
-  addr_recv->port = PORT;
+  addr_recv->port = my_port; // can't be dummy for inbound connections
 
   addr_from->services = SERVICES;
   for (int i = 0; i < 16; i++)
     addr_from->ip[i] = 0;
-  addr_from->port = PORT;
+  addr_from->port = my_port;
 
   payload->nonce = NONCE;
   payload->user_agent.string = USER_AGENT;
