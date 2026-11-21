@@ -56,10 +56,10 @@ void cli_parsing(t_seeder_opts *opts, int argc, char **argv) {
       opts->threads = atoi(optarg);
       break;
     }
-    case 'l': {
-      //
-      break;
-    }
+    // case 'l': {
+    //
+    // break;
+    //}
     case 'h': {
       show_help = true;
       break;

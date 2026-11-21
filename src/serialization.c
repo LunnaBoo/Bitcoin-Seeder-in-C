@@ -394,11 +394,9 @@ int full_read(int fd, t_message *msg) {
   size_t payload_size;
 
   buf = malloc(24);
-  while (1) {
+  while (check >= 0) {
     check = exact_read(fd, buf, 24);
-    if (check < 0) // error
-      return -1;
-    else if (check == 1) // connection closed
+    if (check == 1) // connection closed
       return 1;
 
     unpack_message(&msgs, &msg_count, buf, 24); // gets header
