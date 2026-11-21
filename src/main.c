@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
   opts.port = 8333;
   opts.seed = "seed.bitcoin.sipa.be";
   // opts.logfile
-  // opts.threads = 96;
+  opts.threads = 96;
 
   cli_parsing(&opts, argc, argv);
 
