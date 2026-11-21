@@ -3,8 +3,6 @@
 #include "utils.h"
 #include <sys/types.h>
 
-#define ADDRINFO_PORT "8333"
-
 struct addrinfo *look_up_host(char *hostname) {
   // Does DNS look up; finds IPs from a hostname
   struct addrinfo hints; // actual struct
