@@ -14,7 +14,7 @@ struct addrinfo *look_up_host(char *hostname) {
   hints.ai_socktype = SOCK_STREAM;
 
   // service field MUST be port 8333
-  status = getaddrinfo(hostname, ADDRINFO_PORT, &hints,
+  status = getaddrinfo(hostname, DEFAULT_PORT, &hints,
                        &res); // call getaddrinfo to fill addrinfo
   if (status != 0) {
     fprintf(stderr, "getaddrinfo: %s\n",
@@ -87,9 +87,9 @@ int exact_read(int fd, unsigned char *buf, size_t bytes_to_read) {
     if (current_read < 0)
       return -1;
     else if (current_read == 0)
-      return 1;
+      return 0;
     bytes_read += current_read;
   }
 
-  return 0;
+  return bytes_read;
 }

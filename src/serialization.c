@@ -230,25 +230,16 @@ static int unpack_header(unsigned char *buf, t_message_header *header) {
   int offset = 0;
   unsigned char magic[magic_length];
   unsigned char command[command_length];
-  uint32_t size;
   unsigned char checksum[checksum_length];
 
-  memcpy(magic, buf, magic_length);
+  memcpy(header->magic, buf, magic_length);
   offset += magic_length;
-  memcpy(command, buf + offset, command_length);
+  memcpy(header->command, buf + offset, command_length);
   offset += command_length;
-  size = unpack_uint32(buf + offset);
+  header->size = unpack_uint32(buf + offset);
   offset += 4;
-  memcpy(checksum, buf + offset, checksum_length);
+  memcpy(header->checksum, buf + offset, checksum_length);
   offset += checksum_length;
-
-  for (int i = 0; i < magic_length; i++)
-    header->magic[i] = magic[i];
-  for (int i = 0; i < command_length; i++)
-    header->command[i] = command[i];
-  header->size = size;
-  for (int i = 0; i < checksum_length; i++)
-    header->checksum[i] = checksum[i];
 
   return offset;
 }
@@ -345,13 +336,87 @@ int unpack_ping_pong_payload(t_ping_pong_payload *payload,
   return 0;
 }
 
-/*
-void unpack_net_addr(t_net_addr *net_addr, unsigned char *buf) {
-  net_addr->time = unpack_uint32(buf);
-  net_addr->services = unpack_uint64(buf + 4);
-  memcpy(net_addr->ip, buf + 12, 16);
-  net_addr->port = unpack_uint16(buf + 28);
+int unpack_net_addr(t_net_addr *net_addr, unsigned char *buf, int has_time) {
+  unsigned int offset = 0;
+  if (has_time) {
+    net_addr->time = unpack_uint32(buf);
+    offset += 4;
+  }
+  net_addr->services = unpack_uint64(buf + offset);
+  offset += 8;
+  memcpy(net_addr->ip, buf + offset, 16);
+  offset += 16;
+  net_addr->port = unpack_uint16(buf + offset);
+
+  return 0;
 }
+
+/*
+int unpack_var_str(t_var_str *var_str, unsigned char *buf) {
+//
+}
+*/
+
+// TODO: TEST IT
+int unpack_version_payload(t_version_payload *payload, unsigned char *buf,
+                           const size_t buf_len) {
+  t_reader reader;
+  reader.buf = buf;
+  reader.current_position = 0;
+  reader.length = buf_len;
+  unsigned int offset;
+  unsigned char *buf_cursor;
+
+  int32_t version;
+  uint64_t services;
+  int64_t timestamp;
+  t_net_addr addr_recv;
+  t_net_addr addr_from;
+  uint64_t nonce;
+  t_var_str user_agent;
+  int32_t start_height;
+  bool relay;
+
+  if (buf_len < 46)
+    return 1;
+
+  offset = 0;
+  version = unpack_int32(buf);
+  offset += 4;
+  services = unpack_uint64(buf + offset);
+  offset += 8;
+  timestamp = unpack_int64(buf + offset);
+  offset += 8;
+  unpack_net_addr(&addr_recv, buf + offset, 0);
+  reader.current_position = 46;
+
+  buf_cursor = check_overflow(&reader, 26);
+  if (!buf_cursor)
+    return 1;
+  unpack_net_addr(&addr_from, buf_cursor, 0);
+
+  buf_cursor = check_overflow(&reader, 8);
+  if (!buf_cursor)
+    return 1;
+  nonce = unpack_uint64(buf_cursor);
+
+  // user_agent = unpack_var_str()
+
+  buf_cursor = check_overflow(&reader, 4);
+  if (!buf_cursor)
+    return 1;
+  start_height = unpack_int32(buf_cursor);
+
+  buf_cursor = check_overflow(&reader, 1);
+  if (buf_cursor && *buf_cursor != 0)
+    relay = true;
+  else
+    relay = false;
+
+  return 0;
+}
+
+/*
 
 int unpack_addr_payload(t_addr_payload *payload, const unsigned char *buf,
                         const size_t buf_len) {
@@ -383,37 +448,31 @@ int get_peer_ip(unsigned char *buf, int fd) {
 
 // void pack_addr(unsigned char *buf, t_addr_payload)
 
-// TODO: Write a while(1) loop that uses exact_read() to get a message header,
-// checks payload size, then does another exact_read() to get it. If
-// exact_read() returns -1 break.
+// TODO: Add validation method for the header and run it before trying to get
+// the payload from the byte stream.
 int full_read(int fd, t_message *msg) {
   unsigned char *buf;
-  ssize_t check;
-  t_message *msgs;
+  ssize_t check = 1;
+  t_message *msgs = NULL;
+  t_message_header header;
   size_t msg_count;
   size_t payload_size;
 
-  buf = malloc(24);
-  while (check >= 0) {
+  buf = malloc(MAX_MSG_SIZE + 24);
+  while (check > 0) {
     check = exact_read(fd, buf, 24);
-    if (check == 1) // connection closed
-      return 1;
 
-    unpack_message(&msgs, &msg_count, buf, 24); // gets header
-    payload_size = msgs->msg_header.size;
+    unpack_header(buf, &header);
+    payload_size = header.size;
     if ((payload_size > SIZE_MAX - 24) || (payload_size > MAX_MSG_SIZE))
       return -1;
-    unsigned char *tmp = realloc(buf, payload_size + 24);
-    if (tmp == NULL) {
-      free(buf);
-      return -1;
-    }
-    buf = tmp;
 
     check = exact_read(fd, buf + 24, payload_size);
 
-    free(msgs);
-    msgs = NULL;
+    if (msgs) {
+      free(msgs);
+      msgs = NULL;
+    }
     if (unpack_message(&msgs, &msg_count, buf, payload_size + 24) == 1)
       return -1;
     *msg = *msgs;
@@ -422,5 +481,5 @@ int full_read(int fd, t_message *msg) {
   free(buf);
   buf = NULL;
 
-  return 0;
+  return check;
 }

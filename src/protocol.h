@@ -8,7 +8,7 @@ enum { checksum_length = 4, command_length = 12, magic_length = 4 };
 
 enum { main_net = 1, test_net = 2, test_net3 = 3, sig_net = 4, namecoin = 5 };
 
-#define ADDRINFO_PORT "8333"
+#define DEFAULT_PORT "8333"
 #define SERVICES 1
 #define VERSION 70015
 #define USER_AGENT "/boo:0.1.0/"

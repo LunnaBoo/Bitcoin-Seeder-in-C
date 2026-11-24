@@ -10,6 +10,9 @@
 #include <sys/types.h>
 #include <unistd.h> // close()
 
+#define MIN_RETRY 1000
+#define REQUIRE_VERSION 70001
+
 struct addrinfo *look_up_host(char *hostname);
 void address_printer(char *message, struct addrinfo *p);
 void print_addresses(struct addrinfo *res, char *hostname, int limit);

@@ -142,10 +142,12 @@ int main(int argc, char **argv) {
   // HANDSHAKE IS FINISHED \o/
 
   // Listen for new messages, and implement ping pong
-  while (1) {
-    if (full_read(socket_fd, &msg) < 0) {
-      return 1;
-    }
+  //
+  // THE BUG IS IN THE WHILE CONDITION. >= 0 AND > 0 NEITHER ARE CORRECT. DO NOT
+  // TRUST THE RECV VALUE THey DO not DESERVE TO BE TRUSTED
+  ssize_t check = 1;
+  while (check >= 0) {
+    check = full_read(socket_fd, &msg);
     // DEBUG / LOGGING
     printf("--------------------\nMessage received:");
     print_message(&msg, 1);
