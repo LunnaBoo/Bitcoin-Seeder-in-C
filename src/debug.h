@@ -9,6 +9,6 @@ void print_addresses(struct addrinfo *res, char *hostname, int limit);
 void address_printer(char *message, struct addrinfo *p);
 unsigned char *print_bytes(void *value, unsigned int size);
 unsigned char *check_bytes(void *value);
-int print_message(t_message *msgs, size_t msg_count);
+int print_message(t_message *msg);
 
 #endif

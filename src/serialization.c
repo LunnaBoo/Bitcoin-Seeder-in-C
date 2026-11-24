@@ -11,6 +11,7 @@
 #include "serialization.h"
 #include "protocol.h"
 #include "utils.h"
+#include <stdatomic.h>
 #include <stdint.h>
 
 // Concatenate byte-by-byte of the value in little endian order
@@ -20,6 +21,7 @@ static void pack_int16(unsigned char *buf, uint16_t i) {
   *(buf++) = i >> 8;
 }
 */
+
 static void pack_int32(unsigned char *buf, uint32_t i) {
   *(buf++) = i;
   *(buf++) = i >> 8;
@@ -37,7 +39,7 @@ static void pack_int64(unsigned char *buf, uint64_t i) {
   *(buf++) = i >> 48;
   *(buf++) = i >> 56;
 }
-
+/*
 static int16_t unpack_int16(unsigned char *buf) {
   uint16_t i2;
   int i;
@@ -50,6 +52,7 @@ static int16_t unpack_int16(unsigned char *buf) {
 
   return i;
 }
+*/
 
 static uint16_t unpack_uint16(unsigned char *buf) {
   return ((uint16_t)buf[1] << 8) | buf[0];
@@ -228,9 +231,6 @@ void pack_message(unsigned char *buf, t_message message, size_t payload_len) {
 }
 static int unpack_header(unsigned char *buf, t_message_header *header) {
   int offset = 0;
-  unsigned char magic[magic_length];
-  unsigned char command[command_length];
-  unsigned char checksum[checksum_length];
 
   memcpy(header->magic, buf, magic_length);
   offset += magic_length;
@@ -252,6 +252,8 @@ static size_t check_available_bytes(t_reader *reader) {
 }
 
 unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
+  if (bytes_to_write <= 0)
+    return NULL;
   if ((check_available_bytes(reader) < bytes_to_write))
     return NULL;
   unsigned char *p = reader->buf + reader->current_position;
@@ -263,66 +265,40 @@ unsigned char *check_overflow(t_reader *reader, size_t bytes_to_write) {
 // pointless. It makes a lot more sense to get 1 message at a time, but I had no
 // idea it was possible and thought I was supposed to read the whole recv()
 // buffer at once. Now I see that implies having a 32mb buffer...
-int unpack_message(t_message **msgs, size_t *msg_count,
-                   const unsigned char *buf, const size_t buf_len) {
+int unpack_message(t_message *msg, unsigned char *buf, const size_t buf_len) {
   t_message_header header;
   t_reader reader;
   unsigned char *buf_cursor;
-  unsigned char payload_buf[buf_len];
-  unsigned int array_limit = 5;
 
   reader.buf = (unsigned char *)buf;
   reader.current_position = 0;
   reader.length = buf_len;
 
-  *msgs = malloc(array_limit * sizeof(t_message));
-  if (*msgs == NULL)
+  if (buf_len < 24)
     return 1;
-  *msg_count = 0;
 
-  while (reader.current_position < buf_len) {
-    if (*msg_count >= array_limit) {
-      array_limit *= 2;
-      t_message *tmp = realloc(*msgs, array_limit * sizeof(t_message));
-      if (tmp == NULL) {
-        return 1;
-      }
-      *msgs = tmp;
-    }
-    // get header
-    buf_cursor = check_overflow(&reader, 24);
-    if (buf_cursor == NULL)
-      return 1;
-    unpack_header(buf_cursor, &header);
-    (*msgs)[*msg_count].msg_header = header;
+  unpack_header(buf, &header);
+  reader.current_position += 24;
+  msg->msg_header = header;
 
-    // get payload
+  if (header.size > MAX_MSG_SIZE)
+    return 1;
+
+  if (header.size > 0) {
+    unsigned char payload_buf[header.size];
+
     buf_cursor = check_overflow(&reader, header.size);
-    if (buf_cursor == NULL)
+    if (!buf_cursor)
       return 1;
     memcpy(payload_buf, buf_cursor, header.size);
-    (*msgs)[*msg_count].payload = payload_buf;
+    msg->payload = payload_buf;
+  }
 
-    *msg_count += 1;
-  }
-  if (*msg_count < array_limit) {
-    t_message *tmp = realloc(*msgs, *msg_count * sizeof(t_message));
-    if (tmp == NULL) {
-      return 1;
-    }
-    *msgs = tmp;
-  }
   return 0;
 }
 
-// TODO: must be implemented for task 2:
-// int unpack_version_payload(t_message *msg, t_version_payload
-// *version_payload);
-
 int unpack_ping_pong_payload(t_ping_pong_payload *payload,
                              const unsigned char *buf, const size_t buf_len) {
-  // TODO: Check if this reader struct + check_overflow() are really necessary
-  // here.
   t_reader reader;
 
   reader.buf = (unsigned char *)buf;
@@ -351,11 +327,44 @@ int unpack_net_addr(t_net_addr *net_addr, unsigned char *buf, int has_time) {
   return 0;
 }
 
-/*
 int unpack_var_str(t_var_str *var_str, unsigned char *buf) {
-//
+  if (var_str->length <= 0)
+    return 1;
+  for (int i = 0; i < var_str->length; i++) {
+    var_str->string[i] = buf[i + 1];
+  }
+
+  return 0;
 }
-*/
+
+// helper
+static void apply_full_version_fields(t_version_payload *payload,
+                                      int32_t version, uint64_t services,
+                                      int64_t timestamp, t_net_addr addr_recv,
+                                      t_net_addr addr_from, uint64_t nonce,
+                                      t_var_str user_agent,
+                                      int32_t start_height, bool relay) {
+  payload->version = version;
+  payload->services = services;
+  payload->timestamp = timestamp;
+  payload->addr_recv = addr_recv;
+  payload->addr_from = addr_from;
+  payload->nonce = nonce;
+  payload->user_agent = user_agent;
+  payload->start_height = start_height;
+  payload->relay = relay;
+}
+
+// helper
+static void apply_partial_version_fields(t_version_payload *payload,
+                                         int32_t version, uint64_t services,
+                                         int64_t timestamp,
+                                         t_net_addr addr_recv) {
+  payload->version = version;
+  payload->services = services;
+  payload->timestamp = timestamp;
+  payload->addr_recv = addr_recv;
+}
 
 // TODO: TEST IT
 int unpack_version_payload(t_version_payload *payload, unsigned char *buf,
@@ -391,28 +400,60 @@ int unpack_version_payload(t_version_payload *payload, unsigned char *buf,
   reader.current_position = 46;
 
   buf_cursor = check_overflow(&reader, 26);
-  if (!buf_cursor)
-    return 1;
+  if (!buf_cursor) {
+    apply_partial_version_fields(payload, version, services, timestamp,
+                                 addr_recv);
+    return 0;
+  }
   unpack_net_addr(&addr_from, buf_cursor, 0);
 
   buf_cursor = check_overflow(&reader, 8);
-  if (!buf_cursor)
-    return 1;
+  if (!buf_cursor) {
+    apply_partial_version_fields(payload, version, services, timestamp,
+                                 addr_recv);
+    return 0;
+  }
   nonce = unpack_uint64(buf_cursor);
 
-  // user_agent = unpack_var_str()
+  buf_cursor = check_overflow(&reader, 1);
+  if (!buf_cursor) {
+    apply_partial_version_fields(payload, version, services, timestamp,
+                                 addr_recv);
+    return 0;
+  }
+  user_agent.length =
+      buf[reader.current_position - 1]; // current_position is 1 ahead because
+                                        // overflow() advances current_position
+
+  buf_cursor = check_overflow(&reader, user_agent.length);
+  if (!buf_cursor) {
+    apply_partial_version_fields(payload, version, services, timestamp,
+                                 addr_recv);
+    return 0;
+  }
+  unpack_var_str(&user_agent, buf_cursor);
 
   buf_cursor = check_overflow(&reader, 4);
-  if (!buf_cursor)
-    return 1;
+  if (!buf_cursor) {
+    apply_partial_version_fields(payload, version, services, timestamp,
+                                 addr_recv);
+    return 0;
+  }
   start_height = unpack_int32(buf_cursor);
 
   buf_cursor = check_overflow(&reader, 1);
   if (buf_cursor && *buf_cursor != 0)
     relay = true;
-  else
+  else if (buf_cursor && *buf_cursor == 0)
     relay = false;
+  else {
+    apply_partial_version_fields(payload, version, services, timestamp,
+                                 addr_recv);
+    return 0;
+  }
 
+  apply_full_version_fields(payload, version, services, timestamp, addr_recv,
+                            addr_from, nonce, user_agent, start_height, relay);
   return 0;
 }
 
@@ -448,38 +489,39 @@ int get_peer_ip(unsigned char *buf, int fd) {
 
 // void pack_addr(unsigned char *buf, t_addr_payload)
 
+uint32_t get_payload_size(unsigned char *buf) {
+
+  return (unpack_uint32(buf + 16));
+}
+
 // TODO: Add validation method for the header and run it before trying to get
 // the payload from the byte stream.
 int full_read(int fd, t_message *msg) {
   unsigned char *buf;
-  ssize_t check = 1;
-  t_message *msgs = NULL;
-  t_message_header header;
-  size_t msg_count;
-  size_t payload_size;
+  uint32_t payload_size;
+  size_t recv_bytes;
+  ssize_t ret_value;
 
   buf = malloc(MAX_MSG_SIZE + 24);
-  while (check > 0) {
-    check = exact_read(fd, buf, 24);
 
-    unpack_header(buf, &header);
-    payload_size = header.size;
-    if ((payload_size > SIZE_MAX - 24) || (payload_size > MAX_MSG_SIZE))
-      return -1;
-
-    check = exact_read(fd, buf + 24, payload_size);
-
-    if (msgs) {
-      free(msgs);
-      msgs = NULL;
-    }
-    if (unpack_message(&msgs, &msg_count, buf, payload_size + 24) == 1)
-      return -1;
-    *msg = *msgs;
-    break;
+  ret_value = exact_read(fd, buf, 24);
+  if (ret_value == -1)
+    return 1;
+  recv_bytes = ret_value;
+  payload_size = unpack_uint32(buf + 16);
+  if (payload_size > MAX_MSG_SIZE)
+    return 1;
+  if (payload_size > 0) {
+    ret_value = exact_read(fd, buf + 24, payload_size);
+    if (ret_value == -1)
+      return 1;
+    recv_bytes += ret_value;
   }
+  if (unpack_message(msg, buf, recv_bytes) == 1)
+    return 1;
+
   free(buf);
   buf = NULL;
 
-  return check;
+  return 0;
 }

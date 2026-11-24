@@ -82,12 +82,15 @@ int exact_read(int fd, unsigned char *buf, size_t bytes_to_read) {
   size_t bytes_read = 0;
   ssize_t current_read = 0;
 
+  if (bytes_to_read == 0)
+    return -1;
+
   while (bytes_read < bytes_to_read) {
     current_read = recv(fd, buf + bytes_read, bytes_to_read - bytes_read, 0);
     if (current_read < 0)
       return -1;
     else if (current_read == 0)
-      return 0;
+      return -1;
     bytes_read += current_read;
   }
 

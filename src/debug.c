@@ -57,24 +57,18 @@ unsigned char *check_bytes(void *value) {
   return p;
 }
 
-int print_message(t_message *msgs, size_t msg_count) {
-  int n = 0;
-
-  while ((size_t)n < msg_count) {
-    printf("\n\n");
-    printf("magic: ");
-    for (int i = 0; i < magic_length; i++)
-      printf("%02hhx ", msgs[n].msg_header.magic[i]);
-    printf("\ncommand: ");
-    for (int i = 0; i < command_length; i++)
-      printf("%c ", msgs[n].msg_header.command[i]);
-    printf("\nsize: %d\n", msgs[n].msg_header.size);
-    printf("checksum: ");
-    for (int i = 0; i < checksum_length; i++)
-      printf("%02hhx ", msgs[n].msg_header.checksum[i]);
-    n++;
-  }
-  // payload
+int print_message(t_message *msg) {
+  printf("\n\n");
+  printf("magic: ");
+  for (int i = 0; i < magic_length; i++)
+    printf("%02hhx ", msg->msg_header.magic[i]);
+  printf("\ncommand: ");
+  for (int i = 0; i < command_length; i++)
+    printf("%c ", msg->msg_header.command[i]);
+  printf("\nsize: %d\n", msg->msg_header.size);
+  printf("checksum: ");
+  for (int i = 0; i < checksum_length; i++)
+    printf("%02hhx ", msg->msg_header.checksum[i]);
   printf("\n");
   return 0;
 }

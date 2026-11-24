@@ -80,6 +80,7 @@ int get_peer_ip(unsigned char *buf, int fd);
 
 int main(int argc, char **argv) {
   int socket_fd;
+  unsigned char peer_ip[16];
   t_message msg;
   struct addrinfo *res;
   t_seeder_opts opts;
@@ -104,15 +105,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  unsigned char peer_ip[16];
   get_peer_ip(peer_ip, socket_fd);
 
   printf("Connection established.\n\n");
-
-  // DEBUG / LOGGING
-  t_message *my_msgs;
-  size_t msg_count;
-  // DEBUG / LOGGING
 
   // SEND VERSION
   unsigned char serialized_message[121];
@@ -120,37 +115,49 @@ int main(int argc, char **argv) {
 
   // Prints deserialized version header
   printf("--------------------\nMessage sent:");
-  unpack_message(&my_msgs, &msg_count, serialized_message, 121);
-  print_message(my_msgs, 1);
+  unpack_message(&msg, serialized_message, 121);
+  print_message(&msg);
 
+  memset(&msg, 0, sizeof msg); // clear msg struct
   //  Receives message
-  full_read(socket_fd, &msg);
+  if (full_read(socket_fd, &msg) == 1) {
+    freeaddrinfo(res);
+    return 1;
+  }
 
   // Prints received messages deserialized headers
   printf("--------------------\nMessage received:");
-  print_message(&msg, 1);
+  print_message(&msg);
 
   unsigned char serialized_verack[24]; // stored for printing/debug
   send_headless(socket_fd, "verack", main_net, serialized_verack);
 
+  memset(&msg, 0, sizeof msg); // clear msg struct
   // Prints deserialized verack
   printf("--------------------\nMessage sent:");
-  free(my_msgs);
-  my_msgs = NULL;
-  unpack_message(&my_msgs, &msg_count, serialized_verack, 24);
-  print_message(my_msgs, msg_count);
+  unpack_message(&msg, serialized_verack, 24);
+  print_message(&msg);
+
+  memset(&msg, 0, sizeof msg); // clear msg struct
+  //  Receives message
+  if (full_read(socket_fd, &msg) == 1) {
+    freeaddrinfo(res);
+    return 1;
+  }
+
+  // Prints received messages deserialized headers
+  printf("--------------------\nMessage received:");
+  print_message(&msg);
   // HANDSHAKE IS FINISHED \o/
 
   // Listen for new messages, and implement ping pong
-  //
-  // THE BUG IS IN THE WHILE CONDITION. >= 0 AND > 0 NEITHER ARE CORRECT. DO NOT
-  // TRUST THE RECV VALUE THey DO not DESERVE TO BE TRUSTED
-  ssize_t check = 1;
-  while (check >= 0) {
-    check = full_read(socket_fd, &msg);
+  while (1) {
+    memset(&msg, 0, sizeof msg); // clear msg struct
+    if (full_read(socket_fd, &msg) == 1)
+      break;
     // DEBUG / LOGGING
     printf("--------------------\nMessage received:");
-    print_message(&msg, 1);
+    print_message(&msg);
     // DEBUG / LOGGING
 
     static const unsigned char PING[12] = "ping";
@@ -162,11 +169,9 @@ int main(int argc, char **argv) {
 
       // DEBUG / LOGGING
       printf("--------------------\nMessage sent:");
-      free(my_msgs);
-      my_msgs = NULL;
-      unpack_message(&my_msgs, &msg_count, serialized_pong,
-                     PING_PONG_PAYLOAD_LEN + 24);
-      print_message(my_msgs, msg_count);
+      memset(&msg, 0, sizeof msg); // clear msg struct
+      unpack_message(&msg, serialized_pong, PING_PONG_PAYLOAD_LEN + 24);
+      print_message(&msg);
       // DEBUG / LOGGING
     }
   }
