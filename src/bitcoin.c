@@ -2,7 +2,9 @@
 #include "protocol.h"
 #include "serialization.h"
 
-// Removed payload_len var and used VERSION_PAYLOAD_LEN everywhere instead
+// TODO: VERSION_PAYLOAD_LEN for the serialized_payload and message is messed up
+// because of the user_agent. Gotta fix the user_agent length problem so
+// serialized buffers here hold true size, without stack smashing.
 int send_version(int fd, const int network, const unsigned char *peer_ip,
                  int my_port, unsigned char *buf) {
   t_version_payload version_payload;
@@ -13,6 +15,7 @@ int send_version(int fd, const int network, const unsigned char *peer_ip,
   size_t bytes_sent = 0;
 
   version_payload_init(&version_payload, peer_ip, my_port);
+
   pack_version_payload(serialized_payload, version_payload);
   message_init(&message, "version", network, serialized_payload,
                VERSION_PAYLOAD_LEN);

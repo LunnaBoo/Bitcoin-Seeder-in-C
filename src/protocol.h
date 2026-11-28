@@ -11,10 +11,14 @@ enum { main_net = 1, test_net = 2, test_net3 = 3, sig_net = 4, namecoin = 5 };
 #define DEFAULT_PORT "8333"
 #define SERVICES 1
 #define VERSION 70015
-#define USER_AGENT "/boo:0.1.0/"
+
+// must update MY_SUBVERSION_SIZE after changing SUBVERSION
+#define SUBVERSION "/boo:0.1.0/"
+#define MY_SUBVERSION_SIZE 11
+
 #define NONCE 0x0539a019ca550825ULL
 
-#define VERSION_PAYLOAD_LEN 97
+#define VERSION_PAYLOAD_LEN 85 // ignores SUBVERSION
 #define PING_PONG_PAYLOAD_LEN 8
 #define MAX_MSG_SIZE (256 * 1024) // 256 KB
 
@@ -38,11 +42,16 @@ typedef struct s_net_addr {
   uint16_t port;
 } t_net_addr;
 
+typedef struct s_var_int {
+  uint8_t bytes_read;
+  uint64_t value;
+} t_var_int;
+
 // variable length string (it is needed to store length
 // of all variable fields for (de)serialization to work).
 typedef struct s_var_str {
-  uint8_t length; // technically it should be varint type
-  char *string;
+  t_var_int length;
+  char string[257];
 } t_var_str;
 
 // netaddr DOES NOT have time

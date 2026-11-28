@@ -10,9 +10,6 @@
 
 #include "serialization.h"
 #include "protocol.h"
-#include "utils.h"
-#include <stdatomic.h>
-#include <stdint.h>
 
 // Concatenate byte-by-byte of the value in little endian order
 /*
@@ -39,6 +36,7 @@ static void pack_int64(unsigned char *buf, uint64_t i) {
   *(buf++) = i >> 48;
   *(buf++) = i >> 56;
 }
+
 /*
 static int16_t unpack_int16(unsigned char *buf) {
   uint16_t i2;
@@ -55,7 +53,8 @@ static int16_t unpack_int16(unsigned char *buf) {
 */
 
 static uint16_t unpack_uint16(unsigned char *buf) {
-  return ((uint16_t)buf[1] << 8) | buf[0];
+  return ((uint16_t)buf[0] << 8) | (uint16_t)buf[1];
+  // return ((uint16_t)buf[1] << 8) | buf[0];
 }
 
 static int32_t unpack_int32(unsigned char *buf) {
@@ -100,17 +99,57 @@ static uint64_t unpack_uint64(unsigned char *buf) {
                    ((uint64_t)buf[7] << 56));
 }
 
-static void pack_var_str(unsigned char *buf, t_var_str str) {
-  // pack length
-  // pack char[i] while i < length
-  int i = 0;
+int pack_var_int(unsigned char *buf, t_var_int var_int) {
+  uint64_t value = var_int.value;
 
-  buf[i] = str.length;
+  if (value < 253) {
+    buf[0] = value;
 
-  while (i < str.length) {
-    buf[i + 1] = (unsigned char)str.string[i];
+    return 1;
+  } else if (value >= 253 && value <= 65535) {
+    *(buf++) = 0xFD;
+    *(buf++) = value;
+    *(buf++) = value >> 8;
+
+    return 3;
+  } else if (value > 65535 && value <= UINT32_MAX) {
+    *(buf++) = 0xFE;
+    *(buf++) = value;
+    *(buf++) = value >> 8;
+    *(buf++) = value >> 16;
+    *(buf++) = value >> 24;
+
+    return 5;
+  } else {
+    *(buf++) = 0xFF;
+    *(buf++) = value;
+    *(buf++) = value >> 8;
+    *(buf++) = value >> 16;
+    *(buf++) = value >> 24;
+    *(buf++) = value >> 32;
+    *(buf++) = value >> 40;
+    *(buf++) = value >> 48;
+    *(buf++) = value >> 56;
+
+    return 9;
+  }
+}
+
+int pack_user_agent(unsigned char *buf, t_var_str var_str) {
+  size_t i;
+  size_t byte_count;
+
+  i = 0;
+  byte_count = pack_var_int(buf, var_str.length);
+  if (byte_count == 0)
+    return 1;
+  buf += byte_count;
+  while (i < var_str.length.value) {
+    buf[i] = (unsigned char)var_str.string[i];
+    byte_count++;
     i++;
   }
+  return byte_count;
 }
 
 static void pack_port(unsigned char *buf, uint16_t port) {
@@ -181,7 +220,8 @@ int pack_version_payload(unsigned char *buf, t_version_payload payload) {
   unsigned char addr_recv[26];
   unsigned char addr_from[26];
   unsigned char nonce[8];
-  unsigned char user_agent[payload.user_agent.length + 1];
+  unsigned char user_agent[MY_SUBVERSION_SIZE];
+  size_t user_agent_bytes;
   unsigned char start_height[4];
   unsigned char relay[1];
   int payload_len;
@@ -193,7 +233,7 @@ int pack_version_payload(unsigned char *buf, t_version_payload payload) {
   pack_net_addr(addr_recv, payload.addr_recv, false);
   pack_net_addr(addr_from, payload.addr_from, false);
   pack_int64(nonce, payload.nonce);
-  pack_var_str(user_agent, payload.user_agent);
+  user_agent_bytes = pack_user_agent(user_agent, payload.user_agent);
   pack_int32(start_height, payload.start_height);
   memcpy(relay, &payload.relay, 1);
 
@@ -210,9 +250,11 @@ int pack_version_payload(unsigned char *buf, t_version_payload payload) {
   memcpy(buf + offset, nonce, 8);
   offset += 8;
   payload_len = 80;
-  memcpy(buf + offset, user_agent, payload.user_agent.length + 1);
-  offset += payload.user_agent.length + 1;
-  payload_len += payload.user_agent.length + 1;
+
+  memcpy(buf + offset, user_agent, user_agent_bytes);
+  offset += user_agent_bytes;
+  payload_len += user_agent_bytes;
+
   memcpy(buf + offset, start_height, 4);
   offset += 4;
   memcpy(buf + offset, relay, 1);
@@ -312,7 +354,8 @@ int unpack_ping_pong_payload(t_ping_pong_payload *payload,
   return 0;
 }
 
-int unpack_net_addr(t_net_addr *net_addr, unsigned char *buf, int has_time) {
+static void unpack_net_addr(t_net_addr *net_addr, unsigned char *buf,
+                            bool has_time) {
   unsigned int offset = 0;
   if (has_time) {
     net_addr->time = unpack_uint32(buf);
@@ -323,16 +366,72 @@ int unpack_net_addr(t_net_addr *net_addr, unsigned char *buf, int has_time) {
   memcpy(net_addr->ip, buf + offset, 16);
   offset += 16;
   net_addr->port = unpack_uint16(buf + offset);
-
-  return 0;
 }
 
-int unpack_var_str(t_var_str *var_str, unsigned char *buf) {
-  if (var_str->length <= 0)
-    return 1;
-  for (int i = 0; i < var_str->length; i++) {
-    var_str->string[i] = buf[i + 1];
+static void unpack_var_int(unsigned char *buf, size_t buf_len,
+                           t_var_int *var_int) {
+  uint8_t two_bytes;
+  uint8_t four_bytes;
+  uint8_t eight_bytes;
+  uint8_t first_byte;
+
+  two_bytes = 0xFD;
+  four_bytes = 0xFE;
+  eight_bytes = 0xFF;
+
+  if (buf_len < 1) {
+    var_int->bytes_read = 0;
+    var_int->value = 0;
+    return;
   }
+  first_byte = buf[0];
+  if (first_byte < two_bytes && buf_len >= 1) {
+    var_int->bytes_read = 1;
+    var_int->value = first_byte;
+  } else if (first_byte == two_bytes && buf_len >= 3) {
+    var_int->bytes_read = 3;
+    var_int->value = buf[1] | ((uint16_t)buf[2] << 8);
+  } else if (first_byte == four_bytes && buf_len >= 5) {
+    var_int->bytes_read = 5;
+    var_int->value =
+        buf[1] | ((uint32_t)buf[2] << 8 | ((uint32_t)buf[3] << 16) |
+                  ((uint32_t)buf[4] << 24));
+  } else if (first_byte == eight_bytes && buf_len >= 9) {
+    var_int->bytes_read = 9;
+    var_int->value =
+        buf[1] | ((uint64_t)buf[2] << 8 | ((uint64_t)buf[3] << 16) |
+                  ((uint64_t)buf[4] << 24) | ((uint64_t)buf[5] << 32) |
+                  ((uint64_t)buf[6] << 40) | ((uint64_t)buf[7] << 48) |
+                  ((uint64_t)buf[8] << 56));
+  } else {
+    var_int->bytes_read = 0;
+    var_int->value = 0;
+  }
+
+  return;
+}
+
+static int unpack_var_str(t_var_str *var_str, unsigned char *buf,
+                          size_t buf_len) {
+  t_var_int var_int;
+  size_t offset;
+  size_t i;
+
+  unpack_var_int(buf, buf_len, &var_int);
+  offset = var_int.bytes_read;
+
+  if (var_int.value == 0)
+    return 0;
+  if (var_int.value > 256)
+    return 1;
+  if (var_int.value + offset > buf_len)
+    return 1;
+
+  for (i = 0; i < var_int.value; i++) {
+    var_str->string[i] = buf[i + offset];
+  }
+  var_str->string[i] = '\0';
+  var_str->length = var_int;
 
   return 0;
 }
@@ -364,6 +463,14 @@ static void apply_partial_version_fields(t_version_payload *payload,
   payload->services = services;
   payload->timestamp = timestamp;
   payload->addr_recv = addr_recv;
+  payload->addr_from.port = 0;
+  payload->addr_from.services = 0;
+  payload->addr_from.time = 0;
+  payload->nonce = 0;
+  payload->user_agent.length.bytes_read = 0;
+  payload->user_agent.length.value = 0;
+  payload->start_height = -1;
+  payload->relay = 0;
 }
 
 // TODO: TEST IT
@@ -405,7 +512,7 @@ int unpack_version_payload(t_version_payload *payload, unsigned char *buf,
                                  addr_recv);
     return 0;
   }
-  unpack_net_addr(&addr_from, buf_cursor, 0);
+  unpack_net_addr(&addr_from, buf_cursor, false);
 
   buf_cursor = check_overflow(&reader, 8);
   if (!buf_cursor) {
@@ -415,23 +522,24 @@ int unpack_version_payload(t_version_payload *payload, unsigned char *buf,
   }
   nonce = unpack_uint64(buf_cursor);
 
-  buf_cursor = check_overflow(&reader, 1);
+  buf_cursor = reader.buf + reader.current_position;
+  unpack_var_int(buf_cursor, reader.length - reader.current_position,
+                 &user_agent.length);
+  if (user_agent.length.bytes_read == 0) {
+    apply_partial_version_fields(payload, version, services, timestamp,
+                                 addr_recv);
+    return 0;
+  }
+  reader.current_position += user_agent.length.bytes_read;
+  buf_cursor = check_overflow(&reader, user_agent.length.value);
   if (!buf_cursor) {
     apply_partial_version_fields(payload, version, services, timestamp,
                                  addr_recv);
     return 0;
   }
-  user_agent.length =
-      buf[reader.current_position - 1]; // current_position is 1 ahead because
-                                        // overflow() advances current_position
-
-  buf_cursor = check_overflow(&reader, user_agent.length);
-  if (!buf_cursor) {
-    apply_partial_version_fields(payload, version, services, timestamp,
-                                 addr_recv);
-    return 0;
-  }
-  unpack_var_str(&user_agent, buf_cursor);
+  unpack_var_str(&user_agent, buf_cursor,
+                 reader.length -
+                     (reader.current_position - user_agent.length.value));
 
   buf_cursor = check_overflow(&reader, 4);
   if (!buf_cursor) {
@@ -457,12 +565,59 @@ int unpack_version_payload(t_version_payload *payload, unsigned char *buf,
   return 0;
 }
 
-/*
-
-int unpack_addr_payload(t_addr_payload *payload, const unsigned char *buf,
+int unpack_addr_payload(t_addr_payload *payload, unsigned char *buf,
                         const size_t buf_len) {
+  t_reader reader;
+  reader.buf = buf;
+  reader.current_position = 0;
+  reader.length = buf_len;
+  unsigned char *buf_cursor;
+
+  uint64_t addr_count;
+  t_net_addr *addr_array;
+  t_var_int var_int;
+
+  if (buf_len < 1)
+    return 1;
+
+  unpack_var_int(buf, buf_len, &var_int);
+  if (var_int.bytes_read == 0) {
+    payload->addr_array = NULL;
+    payload->addr_count = 0;
+    return 1;
+  }
+
+  reader.current_position += var_int.bytes_read;
+
+  addr_count = var_int.value;
+  if (addr_count > MAX_ADDR_COUNT)
+    return 1;
+  if (addr_count == 0)
+    return 1;
+
+  size_t remaining = buf_len - var_int.bytes_read;
+  if (addr_count > remaining / 30)
+    return 1;
+
+  addr_array = malloc(addr_count * sizeof(t_net_addr));
+  if (!addr_array)
+    return 1;
+  for (size_t i = 0; i < addr_count; i++) {
+    t_net_addr recv_addr;
+    buf_cursor = check_overflow(&reader, 30);
+    if (!buf_cursor) {
+      free(addr_array);
+      return 1;
+    }
+    unpack_net_addr(&recv_addr, buf_cursor, true);
+    addr_array[i] = recv_addr;
+  }
+
+  payload->addr_array = addr_array;
+  payload->addr_count = addr_count;
+
+  return 0;
 }
-*/
 
 int get_peer_ip(unsigned char *buf, int fd) {
   // Writes peer ip to a buffer (already serialized)
@@ -489,20 +644,13 @@ int get_peer_ip(unsigned char *buf, int fd) {
 
 // void pack_addr(unsigned char *buf, t_addr_payload)
 
-uint32_t get_payload_size(unsigned char *buf) {
-
-  return (unpack_uint32(buf + 16));
-}
-
 // TODO: Add validation method for the header and run it before trying to get
 // the payload from the byte stream.
 int full_read(int fd, t_message *msg) {
-  unsigned char *buf;
+  unsigned char buf[MAX_MSG_SIZE + 24];
   uint32_t payload_size;
   size_t recv_bytes;
   ssize_t ret_value;
-
-  buf = malloc(MAX_MSG_SIZE + 24);
 
   ret_value = exact_read(fd, buf, 24);
   if (ret_value == -1)
@@ -510,7 +658,7 @@ int full_read(int fd, t_message *msg) {
   recv_bytes = ret_value;
   payload_size = unpack_uint32(buf + 16);
   if (payload_size > MAX_MSG_SIZE)
-    return 1;
+    return 1; // TODO: return -1 to signal bad peer
   if (payload_size > 0) {
     ret_value = exact_read(fd, buf + 24, payload_size);
     if (ret_value == -1)
@@ -520,8 +668,5 @@ int full_read(int fd, t_message *msg) {
   if (unpack_message(msg, buf, recv_bytes) == 1)
     return 1;
 
-  free(buf);
-  buf = NULL;
-
-  return 0;
+  return recv_bytes;
 }

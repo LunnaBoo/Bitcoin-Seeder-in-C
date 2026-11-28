@@ -1,7 +1,6 @@
 #include "protocol.h"
 #include <openssl/evp.h>
 #include <stdlib.h>
-#include <time.h>
 
 // implement message creation function / struct initialization
 // leave actual operations (test node; send message; etc) to bitcoin.c/h)
@@ -70,6 +69,8 @@ static void dsha256(unsigned char *buf, const unsigned char *payload,
   EVP_Q_digest(NULL, "SHA256", NULL, hash1, size1, buf, &size2);
 }
 
+// TODO: FIX USER_AGENT's variable length messing up bitcoin.c/send_version()
+// serialized buffers.
 void version_payload_init(t_version_payload *payload,
                           const unsigned char *recv_ip, int my_port) {
   t_net_addr *addr_recv = &payload->addr_recv;
@@ -90,8 +91,24 @@ void version_payload_init(t_version_payload *payload,
   addr_from->port = my_port;
 
   payload->nonce = NONCE;
-  payload->user_agent.string = USER_AGENT;
-  payload->user_agent.length = strlen(USER_AGENT);
+  /*
+    payload->user_agent.length.value = MY_SUBVERSION_SIZE;
+    size_t bytes_read;
+    if (MY_SUBVERSION_SIZE < 253)
+      bytes_read = 1;
+    else if (MY_SUBVERSION_SIZE > 253 && MY_SUBVERSION_SIZE <= 65535)
+      bytes_read = 3;
+    else if (MY_SUBVERSION_SIZE > 65535 && MY_SUBVERSION_SIZE <= UINT32_MAX)
+      bytes_read = 5;
+    else
+      bytes_read = 9;
+    payload->user_agent.length.bytes_read = bytes_read;
+    for (int i = 0; i < MY_SUBVERSION_SIZE; i++) {
+      payload->user_agent.string[i] = SUBVERSION[i];
+    }
+  */
+  payload->user_agent.length.bytes_read = 0;
+  payload->user_agent.length.value = 0;
   payload->start_height = -1; // MUST CHANGE LATER
   payload->relay = true;
 }

@@ -1,11 +1,10 @@
 #include "bitcoin.h"
+#include "database.h"
 #include "debug.h"
 #include "netbase.h"
 #include "protocol.h"
 #include "serialization.h"
 #include <getopt.h>
-#include <stdalign.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -84,6 +83,9 @@ int main(int argc, char **argv) {
   t_message msg;
   struct addrinfo *res;
   t_seeder_opts opts;
+  t_addr_db database;
+
+  database_init(&database);
   opts.port = 8333;
   opts.seed = "seed.bitcoin.sipa.be";
   // opts.logfile
@@ -110,7 +112,7 @@ int main(int argc, char **argv) {
   printf("Connection established.\n\n");
 
   // SEND VERSION
-  unsigned char serialized_message[121];
+  unsigned char serialized_message[350];
   send_version(socket_fd, main_net, peer_ip, opts.port, serialized_message);
 
   // Prints deserialized version header
@@ -150,10 +152,21 @@ int main(int argc, char **argv) {
   print_message(&msg);
   // HANDSHAKE IS FINISHED \o/
 
+  // Send get addr
+  unsigned char serializized_getaddr[24];
+  send_headless(socket_fd, "getaddr", main_net, serializized_getaddr);
+  memset(&msg, 0, sizeof msg); // clear msg struct
+  // Prints deserialized getaddr
+  printf("--------------------\nMessage sent:");
+  unpack_message(&msg, serializized_getaddr, 24);
+  print_message(&msg);
+
   // Listen for new messages, and implement ping pong
   while (1) {
+    size_t recv_bytes;
     memset(&msg, 0, sizeof msg); // clear msg struct
-    if (full_read(socket_fd, &msg) == 1)
+    recv_bytes = full_read(socket_fd, &msg);
+    if (recv_bytes == 1)
       break;
     // DEBUG / LOGGING
     printf("--------------------\nMessage received:");
@@ -161,6 +174,7 @@ int main(int argc, char **argv) {
     // DEBUG / LOGGING
 
     static const unsigned char PING[12] = "ping";
+    static const unsigned char ADDR[12] = "addr";
     if (memcmp(msg.msg_header.command, PING, 12) == 0) {
       t_ping_pong_payload ping_payload;
       unsigned char serialized_pong[PING_PONG_PAYLOAD_LEN + 24];
@@ -173,11 +187,42 @@ int main(int argc, char **argv) {
       unpack_message(&msg, serialized_pong, PING_PONG_PAYLOAD_LEN + 24);
       print_message(&msg);
       // DEBUG / LOGGING
+    } else if (memcmp(msg.msg_header.command, ADDR, 12) == 0) {
+      t_addr_payload addr_payload;
+
+      if (unpack_addr_payload(&addr_payload, msg.payload,
+                              msg.msg_header.size) == 1)
+        continue;
+      if (addr_payload.addr_count == 0)
+        continue;
+      for (size_t i = 0; i < addr_payload.addr_count; i++) {
+        t_peer peer;
+        size_t id;
+
+        id = database.peer_storage->nb_entries;
+        peer_init(&peer, addr_payload.addr_array[i]);
+        database.peer_storage->storage[id] = peer;
+        database.peer_storage->nb_entries++;
+
+        peer_map_set(database.peer_map, peer.addr, id);
+        untried_stack_push(database.untried_stack, peer.addr);
+      }
+      printf("\nDB_NB_ENTRIES: %d\n", (int)database.peer_storage->nb_entries);
+      for (int i = 0; i < 16; i++) {
+        printf("%02x ", (unsigned int)database.peer_storage
+                            ->storage[database.peer_storage->nb_entries - 1]
+                            .addr.ip[i]);
+      }
+      printf("port=%u\n", (unsigned int)database.peer_storage
+                              ->storage[database.peer_storage->nb_entries - 1]
+                              .addr.port);
     }
   }
 
   // Connection was closed! Free and return
   printf("\nConnection closed.\n");
+  database_destroy(&database);
+
   freeaddrinfo(res);
   return 0;
 }
