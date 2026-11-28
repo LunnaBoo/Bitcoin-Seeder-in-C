@@ -201,12 +201,11 @@ int main(int argc, char **argv) {
 
         id = database.peer_storage->nb_entries;
         peer_init(&peer, addr_payload.addr_array[i]);
-        database.peer_storage->storage[id] = peer;
-        database.peer_storage->nb_entries++;
-
+        peer_storage_set(database.peer_storage, peer, id);
         peer_map_set(database.peer_map, peer.addr, id);
         untried_stack_push(database.untried_stack, peer.addr);
       }
+      // DEBUG / LOGGING
       printf("\nDB_NB_ENTRIES: %d\n", (int)database.peer_storage->nb_entries);
       for (int i = 0; i < 16; i++) {
         printf("%02x ", (unsigned int)database.peer_storage
@@ -216,6 +215,7 @@ int main(int argc, char **argv) {
       printf("port=%u\n", (unsigned int)database.peer_storage
                               ->storage[database.peer_storage->nb_entries - 1]
                               .addr.port);
+      // DEBUG / LOGGING
     }
   }
 

@@ -84,6 +84,7 @@ int untried_stack_pop(t_stack_manager *stack_man, t_peer_addr *data);
 
 t_peer_storage *peer_storage_create(void);
 void peer_init(t_peer *peer, t_net_addr net_addr);
+int peer_storage_set(t_peer_storage *peer_storage, t_peer peer, size_t id);
 void peer_storage_destroy(t_peer_storage *peer_storage);
 
 void database_init(t_addr_db *addr_db);

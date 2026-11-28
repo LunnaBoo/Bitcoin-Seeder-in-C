@@ -323,6 +323,36 @@ void peer_storage_destroy(t_peer_storage *peer_storage) {
   free(peer_storage);
 }
 
+static bool peer_storage_expand(t_peer_storage *peer_storage) {
+  size_t new_capacity;
+  t_peer *new_storage;
+
+  new_capacity = peer_storage->capacity * 2;
+  if (new_capacity < peer_storage->capacity)
+    return false;
+
+  new_storage = realloc(peer_storage->storage, new_capacity * sizeof(t_peer));
+  if (!new_storage)
+    return false;
+
+  free(peer_storage->storage);
+  peer_storage->storage = new_storage;
+  peer_storage->capacity = new_capacity;
+
+  return true;
+}
+
+int peer_storage_set(t_peer_storage *peer_storage, t_peer peer, size_t id) {
+  if (peer_storage->nb_entries >= peer_storage->capacity)
+    if (!peer_storage_expand(peer_storage))
+      return 1;
+
+  peer_storage->storage[id] = peer;
+  peer_storage->nb_entries++;
+
+  return 0;
+}
+
 void database_destroy(t_addr_db *db) {
   if (!db)
     return;
